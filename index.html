@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Сбитие Дронов</title>
+    <title>Окопная Война: Фикс ПВО и Дронов</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -280,7 +280,10 @@
         function launchShahed() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
             resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
-            db.ref('drones/' + myId + '/hits').remove(); // Очистка старых попаданий
+            
+            db.ref('drones/' + myId).set({ x: myUnit.x, y: camera.position.y + 1, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
+            db.ref('drones/' + myId + '/hits').remove();
+            
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
             document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none'; document.getElementById('minimap').style.display = 'none'; document.getElementById('crosshair').innerText = '[- + -]';
             startDroneSound();
@@ -397,12 +400,11 @@
                             if (!isPaused) db.ref('bullets/' + id).remove(); bulletHit = true; break;
                         }
                         
-                        // СБИТИЕ ДРОНОВ
                         for (let dId in activeDrones) {
                             let d = activeDrones[dId];
                             if (d.team !== myTeam) {
                                 let dist = Math.sqrt(Math.pow(b.mesh.position.x - d.mesh.position.x, 2) + Math.pow(b.mesh.position.y - d.mesh.position.y, 2) + Math.pow(b.mesh.position.z - d.mesh.position.z, 2));
-                                if (dist < 2.0) { // Хитбокс Шахеда 
+                                if (dist < 3.0) { 
                                     showHitmarker();
                                     if (!isPaused) {
                                         let dmg = b.data.isPvo ? 2 : 1;
@@ -474,7 +476,7 @@
                     shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
                     camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
                     if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
-                    else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
+                    else db.ref('drones/' + myId).update({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
                 } 
                 else if (controlMode === 'pvo') {
                     let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
@@ -522,12 +524,11 @@
                 if (myHp <= 0) die(hitData.killerData); snap.ref.remove();
             });
 
-            // ПОДПИСКА НА УРОН ПО МОЕМУ ДРОНУ
             db.ref('drones/' + myId + '/hits').on('child_added', snap => {
                 if (controlMode === 'shahed') {
                     shahedHp -= snap.val().dmg;
                     document.getElementById('shahedHpUi').innerText = shahedHp;
-                    if (shahedHp <= 0) explodeShahed(true); // Сбитие в воздухе!
+                    if (shahedHp <= 0) explodeShahed(true); 
                 }
                 snap.ref.remove();
             });
