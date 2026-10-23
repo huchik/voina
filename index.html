@@ -5,7 +5,10 @@
     <title>Окопная Война: Линия фронта</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
-        canvas { image-rendering: pixelated; width: 100vw; height: 100vh; }
+        
+        /* ИСПРАВЛЕНИЕ МИНИ-КАРТЫ: Применяем 100vw/vh только к главному 3D канвасу */
+        canvas { image-rendering: pixelated; }
+        body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; }
@@ -15,7 +18,8 @@
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; }
         
         /* МИНИ КАРТА */
-        #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; }
+        #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; overflow: hidden; }
+        #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
         
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
@@ -119,7 +123,6 @@
         let isCrouching = false;
         let headBobTimer = 0;
         
-        // ФИЗИКА ПРЫЖКА
         let velocityY = 0;
         let isGrounded = true;
 
@@ -241,7 +244,7 @@
         }
 
         // ==========================================
-        // 5. МИНИ КАРТА И ЛИНИЯ ФРОНТА (ОБНОВЛЕНО ПО СКЕТЧАМ)
+        // 5. МИНИ КАРТА И ЛИНИЯ ФРОНТА
         // ==========================================
         let serverPlayers = {}; 
         
@@ -251,17 +254,15 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, 200, 200);
 
-            // Отрисовка окопов
-            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; // Синие окопы
+            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; 
             ctx.fillRect(0, 45, 200, 10);
             
-            ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; // Красные окопы
+            ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; 
             ctx.fillRect(0, 145, 200, 10);
 
             let myPx = myUnit.x + 100;
             let myPy = myUnit.z + 100;
 
-            // ДИНАМИЧЕСКАЯ ЛИНИЯ ФРОНТА (Красная сплошная)
             ctx.strokeStyle = '#ff0000';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
@@ -270,22 +271,17 @@
                 let dx = x - myPx;
                 let bump = 0;
                 
-                // Изгиб формируется, если игрок рядом с фронтом или продавливает его
-                if (Math.abs(dx) < 35) { // Ширина изгиба
+                if (Math.abs(dx) < 35) {
                     let pct = Math.cos((dx / 35) * (Math.PI / 2));
-                    
                     let targetY = 100;
-                    // Если я Красный и иду на север (вверх по карте), линия выгибается вверх
                     if (myTeam === 'red' && myPy < 115) {
                         targetY = myPy - 15;
                     } 
-                    // Если я Синий и иду на юг (вниз по карте), линия выгибается вниз
                     else if (myTeam === 'blue' && myPy > 85) {
                         targetY = myPy + 15;
                     }
-                    
                     let pull = targetY - 100;
-                    bump = pull * Math.pow(pct, 1.5); // 1.5 дает плавный полукруг вокруг игрока
+                    bump = pull * Math.pow(pct, 1.5); 
                 }
                 
                 if (x === 0) ctx.moveTo(x, 100 + bump);
@@ -293,7 +289,6 @@
             }
             ctx.stroke();
 
-            // Отрисовка игроков
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
                 if (p.inPvo) continue; 
@@ -301,12 +296,11 @@
                 let py = p.z + 100;
 
                 if (id === myId) {
-                    // РИСУЕМ ШЕСТИУГОЛЬНИК И ТЕКСТ (По скетчу)
                     ctx.strokeStyle = '#ff0000'; 
                     ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; 
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    let r = 12; // Размер шестиугольника
+                    let r = 12; 
                     for (let i = 0; i < 6; i++) {
                         let angle = (i * Math.PI / 3) - Math.PI / 2;
                         let hx = px + r * Math.cos(angle);
@@ -318,7 +312,6 @@
                     ctx.fill();
                     ctx.stroke();
                     
-                    // Текст внутри
                     ctx.fillStyle = '#ff0000';
                     ctx.font = '8px sans-serif';
                     ctx.textAlign = 'center';
