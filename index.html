@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Штурм</title>
+    <title>Окопная Война: Линия фронта</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; width: 100vw; height: 100vh; }
@@ -100,7 +100,7 @@
         const db = firebase.database();
 
         // ==========================================
-        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ФИЗИКА И ПРЫЖКИ)
+        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ==========================================
         const myId = Math.random().toString(36).substring(2, 9);
         let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100;
@@ -112,7 +112,7 @@
         let lastDroneTime = -20000;
         const DRONE_COOLDOWN = 20000;
 
-        let myUnit = { x: 0, y: 0, z: 0 }; // y - это высота ног (земля)
+        let myUnit = { x: 0, y: 0, z: 0 }; 
         let shahedUnit = { x: 0, y: 0, z: 0 };
         
         const speed = 0.15;
@@ -137,7 +137,7 @@
         }
 
         // ==========================================
-        // 3. 3D СЦЕНА И ОРУЖИЕ
+        // 3. 3D СЦЕНА
         // ==========================================
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x758c9e);
@@ -220,19 +220,16 @@
 
         scene.add(wallsGroup);
 
-        // ПРОВЕРКА КОЛЛИЗИИ (С учетом высоты ног)
         function checkCollision(nx, nz, ny) {
             if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; 
             for(let b of mapData) {
                 if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4)) {
-                    // Если объект выше, чем наши ноги + максимальная высота шага (0.5), то мы не пройдем
                     if (b.h > ny + 0.5) return true; 
                 }
             }
             return false;
         }
 
-        // ПОЛУЧЕНИЕ ВЫСОТЫ ПОЛА ПОД НАМИ
         function getFloorHeight(nx, nz) {
             let maxH = 0;
             for(let b of mapData) {
@@ -244,9 +241,9 @@
         }
 
         // ==========================================
-        // 5. МИНИ КАРТА И ЛИНИЯ ФРОНТА
+        // 5. МИНИ КАРТА И ЛИНИЯ ФРОНТА (ОБНОВЛЕНО ПО СКЕТЧАМ)
         // ==========================================
-        let serverPlayers = {}; // Храним чистые данные сервера
+        let serverPlayers = {}; 
         
         function drawMinimap() {
             const canvas = document.getElementById('minimapCanvas');
@@ -261,31 +258,79 @@
             ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; // Красные окопы
             ctx.fillRect(0, 145, 200, 10);
 
-            // Линия фронта (Пунктирная)
-            ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(0, 100);
-            ctx.lineTo(200, 100);
-            ctx.stroke();
-            ctx.setLineDash([]);
+            let myPx = myUnit.x + 100;
+            let myPy = myUnit.z + 100;
 
-            // Отрисовка игроков с сервера
+            // ДИНАМИЧЕСКАЯ ЛИНИЯ ФРОНТА (Красная сплошная)
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            
+            for(let x = 0; x <= 200; x++) {
+                let dx = x - myPx;
+                let bump = 0;
+                
+                // Изгиб формируется, если игрок рядом с фронтом или продавливает его
+                if (Math.abs(dx) < 35) { // Ширина изгиба
+                    let pct = Math.cos((dx / 35) * (Math.PI / 2));
+                    
+                    let targetY = 100;
+                    // Если я Красный и иду на север (вверх по карте), линия выгибается вверх
+                    if (myTeam === 'red' && myPy < 115) {
+                        targetY = myPy - 15;
+                    } 
+                    // Если я Синий и иду на юг (вниз по карте), линия выгибается вниз
+                    else if (myTeam === 'blue' && myPy > 85) {
+                        targetY = myPy + 15;
+                    }
+                    
+                    let pull = targetY - 100;
+                    bump = pull * Math.pow(pct, 1.5); // 1.5 дает плавный полукруг вокруг игрока
+                }
+                
+                if (x === 0) ctx.moveTo(x, 100 + bump);
+                else ctx.lineTo(x, 100 + bump);
+            }
+            ctx.stroke();
+
+            // Отрисовка игроков
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
-                if (p.inPvo) continue; // Прячем тех кто в танке
-
-                // Переводим мировые координаты (от -100 до 100) в пиксели мини-карты (от 0 до 200)
+                if (p.inPvo) continue; 
                 let px = p.x + 100;
                 let py = p.z + 100;
 
-                ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
-                if (id === myId) ctx.fillStyle = '#0f0'; // Я зеленый
-
-                ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
-                ctx.fill();
+                if (id === myId) {
+                    // РИСУЕМ ШЕСТИУГОЛЬНИК И ТЕКСТ (По скетчу)
+                    ctx.strokeStyle = '#ff0000'; 
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; 
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    let r = 12; // Размер шестиугольника
+                    for (let i = 0; i < 6; i++) {
+                        let angle = (i * Math.PI / 3) - Math.PI / 2;
+                        let hx = px + r * Math.cos(angle);
+                        let hy = py + r * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(hx, hy);
+                        else ctx.lineTo(hx, hy);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Текст внутри
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = '8px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText("ИГРОК", px, py);
+                    
+                } else {
+                    ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
         }
 
@@ -319,7 +364,7 @@
 
         const playerMeshes = {};
         db.ref('players').on('value', snap => {
-            serverPlayers = snap.val() || {}; // Сохраняем для радара
+            serverPlayers = snap.val() || {}; 
             for (let id in playerMeshes) {
                 if (!serverPlayers[id] || serverPlayers[id].inPvo) { scene.remove(playerMeshes[id]); delete playerMeshes[id]; }
             }
@@ -329,7 +374,6 @@
                 if (!playerMeshes[id]) {
                     playerMeshes[id] = createPlayerModel(p.team); scene.add(playerMeshes[id]);
                 }
-                // Учитываем высоту Y других игроков при прыжках
                 playerMeshes[id].position.set(p.x, p.y || 0, p.z); 
                 playerMeshes[id].rotation.y = p.yaw; 
                 playerMeshes[id].getObjectByName("head").rotation.x = p.pitch;
@@ -421,7 +465,7 @@
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
             document.getElementById('droneOverlay').style.display = 'block'; 
             document.getElementById('hud').style.display = 'none';
-            document.getElementById('minimap').style.display = 'none'; // Прячем карту в дроне
+            document.getElementById('minimap').style.display = 'none'; 
             document.getElementById('crosshair').innerText = '[- + -]';
         }
 
@@ -470,9 +514,8 @@
             keys[e.code] = true; 
             if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = true;
             
-            // ПРЫЖОК
             if (e.code === 'Space' && inGame && controlMode === 'player' && isGrounded && !isCrouching) {
-                velocityY = 0.28; // Сила прыжка
+                velocityY = 0.28; 
                 isGrounded = false;
             }
 
@@ -531,7 +574,6 @@
             requestAnimationFrame(animate);
             if (!inGame || isPaused) return;
 
-            // Отрисовка мини-карты
             if (controlMode !== 'shahed') drawMinimap();
 
             if (controlMode !== 'shahed') {
@@ -559,24 +601,21 @@
                 db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); document.getElementById('hint').style.display = 'none';
             } 
             else {
-                // ФИЗИКА ГРАВИТАЦИИ
                 let floorY = getFloorHeight(myUnit.x, myUnit.z);
                 
                 if (myUnit.y > floorY) {
-                    velocityY -= 0.015; // Гравитация
+                    velocityY -= 0.015; 
                     isGrounded = false;
                 }
                 
                 myUnit.y += velocityY;
 
-                // Приземление
                 if (myUnit.y <= floorY) {
                     myUnit.y = floorY;
                     velocityY = 0;
                     isGrounded = true;
                 }
 
-                // ДВИЖЕНИЕ
                 let currentSpeed = isCrouching ? speed * 0.4 : speed; 
                 let dx = 0, dz = 0;
                 let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
@@ -590,7 +629,6 @@
                 if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx;
                 if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
 
-                // АНИМАЦИИ И КАМЕРА
                 let targetCamOffset = isCrouching ? 0.8 : 1.6;
                 let swayX = 0; let swayY = 0;
                 
@@ -599,7 +637,6 @@
                     swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; 
                 } 
 
-                // Позиция камеры = высота ног (myUnit.y) + рост персонажа + покачивание
                 camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
 
                 recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
@@ -618,12 +655,10 @@
             let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw;
             camera.quaternion.setFromEuler(euler);
 
-            // Обработка пуль (с учетом высоты)
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
                 b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
                 
-                // Пуля попадает в препятствие, если она ниже высоты этого препятствия
                 if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
                     if (b.data.owner === myId) db.ref('bullets/' + id).remove();
                     scene.remove(b.mesh); delete activeBullets[id];
@@ -639,7 +674,6 @@
                     if (controlMode === 'pvo') {
                         if (dist2D < 2.5 && Math.abs(bY - cY) < 2.0) hit = true;
                     } else {
-                        // Точный хитбокс от ног до головы
                         if (dist2D < 0.8 && bY > myUnit.y && bY < cY + 0.3) hit = true;
                     }
                     if (hit) { takeDamage(b.data.dmg); db.ref('bullets/' + id).remove(); }
@@ -664,7 +698,7 @@
             
             document.getElementById('menu').style.display = 'none'; 
             document.getElementById('ui').style.display = 'block';
-            document.getElementById('minimap').style.display = 'block'; // Показываем радар
+            document.getElementById('minimap').style.display = 'block'; 
             
             buildFpsWeapon(myClass); 
 
