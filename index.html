@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Симулятор Войны: Фикс управления</title>
+    <title>Симулятор Войны: Оружие в руках</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; width: 100vw; height: 100vh; }
@@ -17,7 +17,6 @@
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
         
-        /* ЭКРАН ПАУЗЫ */
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; }
         
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
@@ -54,7 +53,6 @@
         <p style="color: gray; margin-top: 40px;">WASD - Ходьба | ЛКМ - Огонь | Q - Запуск FPV Шахеда | F - ПВО</p>
     </div>
 
-    <!-- ДОБАВЛЕН ЭКРАН ПАУЗЫ -->
     <div id="pauseScreen">
         <h1 style="color: white;">ИГРА НА ПАУЗЕ</h1>
         <p style="font-size: 20px; color: #aaa;">Кликни мышкой в любом месте, чтобы вернуться</p>
@@ -94,14 +92,14 @@
         const db = firebase.database();
 
         // ==========================================
-        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И СПАВНЫ
+        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ==========================================
         const myId = Math.random().toString(36).substring(2, 9);
         let myTeam = 'red';
         let myClass = 'штурмовик';
         let myHp = 100;
         let inGame = false;
-        let isPaused = false; // Флаг паузы
+        let isPaused = false; 
         
         let controlMode = 'player'; 
         let inPvoId = null; 
@@ -118,6 +116,10 @@
 
         let yaw = 0;
         let pitch = 0;
+
+        // Переменные для отдачи оружия
+        let recoilOffset = 0;
+        let recoilTarget = 0;
 
         const spawnPoints = {
             'red': [{x: -20, z: 80}, {x: 0, z: 80}, {x: 20, z: 80}, {x: -10, z: 85}, {x: 10, z: 85}],
@@ -136,6 +138,8 @@
         scene.background = new THREE.Color(0x2a2a2a);
         scene.fog = new THREE.FogExp2(0x2a2a2a, 0.015);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+        scene.add(camera); // ВАЖНО: Добавляем камеру на сцену, чтобы прикрепленное к ней оружие было видно
+
         const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setPixelRatio(0.3);
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -145,6 +149,44 @@
         const dirLight = new THREE.DirectionalLight(0x777766, 0.8);
         dirLight.position.set(20, 50, 20);
         scene.add(dirLight);
+
+        // ==========================================
+        // ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА (FPS WEAPON)
+        // ==========================================
+        const fpsWeaponGroup = new THREE.Group();
+        camera.add(fpsWeaponGroup); // Привязываем оружие жестко к камере
+
+        function buildFpsWeapon(cls) {
+            // Очищаем старое оружие (если сменили класс)
+            while(fpsWeaponGroup.children.length > 0) { 
+                fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); 
+            }
+            
+            const matDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a, roughness: 0.8});
+            const matWood = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9}); // Цвет дерева
+
+            if (cls === 'снайпер') {
+                // Снайперская винтовка (длинная, с оптикой и деревянным прикладом)
+                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), matDark);
+                barrel.position.set(0, 0, -0.4);
+                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), matWood);
+                stock.position.set(0, -0.04, 0.3);
+                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), matDark);
+                scope.position.set(0, 0.05, 0.1);
+                fpsWeaponGroup.add(barrel, stock, scope);
+            } else {
+                // Штурмовой автомат (короткий, черный, с магазином)
+                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), matDark);
+                barrel.position.set(0, 0, -0.2);
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), matDark);
+                body.position.set(0, -0.03, 0.1);
+                const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), matDark);
+                mag.position.set(0, -0.15, 0.1);
+                fpsWeaponGroup.add(barrel, body, mag);
+            }
+            // Позиция оружия относительно глаз игрока (Справа, внизу, выдвинуто вперед)
+            fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
+        }
 
         // ==========================================
         // 4. ГЕНЕРАЦИЯ КАРТЫ
@@ -157,8 +199,7 @@
         const buildingMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.9 });
         
         function pseudoRandom(x, z) {
-            let n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
-            return n - Math.floor(n);
+            let n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return n - Math.floor(n);
         }
 
         for(let i = -30; i <= 30; i+=3) {
@@ -166,12 +207,9 @@
                 if (j * 3 < -70 || j * 3 > 70) continue; 
                 let rand = pseudoRandom(i, j);
                 if (rand > 0.6) {
-                    let w = 2 + pseudoRandom(i+1, j) * 4;
-                    let h = 1 + pseudoRandom(i, j+1) * 6;
-                    let d = 2 + pseudoRandom(i+2, j) * 4;
+                    let w = 2 + pseudoRandom(i+1, j) * 4; let h = 1 + pseudoRandom(i, j+1) * 6; let d = 2 + pseudoRandom(i+2, j) * 4;
                     let mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat);
-                    mesh.position.set(i * 3, h/2, j * 3);
-                    wallsGroup.add(mesh);
+                    mesh.position.set(i * 3, h/2, j * 3); wallsGroup.add(mesh);
                     mapData.push({ x: i*3, z: j*3, w: w, d: d, h: h });
                 }
             }
@@ -189,7 +227,7 @@
         }
 
         // ==========================================
-        // 5. МОДЕЛИ
+        // 5. МОДЕЛИ ИГРОКОВ, ПВО, ДРОНОВ
         // ==========================================
         function createPlayerModel(team) {
             const group = new THREE.Group();
@@ -209,14 +247,12 @@
             const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x223322 }));
             base.position.y = 0.75;
             const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x334433 }));
-            turret.position.y = 1.75;
-            turret.name = "turret";
+            turret.position.y = 1.75; turret.name = "turret";
             const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111}));
             m1.position.set(-0.6, 0.6, -0.5);
             const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111}));
             m2.position.set(0.6, 0.6, -0.5);
-            turret.add(m1); turret.add(m2);
-            group.add(base); group.add(turret);
+            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
             return group;
         }
 
@@ -233,12 +269,9 @@
                 if (id === myId || players[id].inPvo) continue;
                 let p = players[id];
                 if (!playerMeshes[id]) {
-                    playerMeshes[id] = createPlayerModel(p.team);
-                    scene.add(playerMeshes[id]);
+                    playerMeshes[id] = createPlayerModel(p.team); scene.add(playerMeshes[id]);
                 }
-                playerMeshes[id].position.set(p.x, 0, p.z);
-                playerMeshes[id].rotation.y = p.yaw;
-                playerMeshes[id].children[1].rotation.x = p.pitch;
+                playerMeshes[id].position.set(p.x, 0, p.z); playerMeshes[id].rotation.y = p.yaw; playerMeshes[id].children[1].rotation.x = p.pitch;
             }
         });
 
@@ -264,8 +297,7 @@
         function updateHpUi() {
             let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp;
             if (myHp > 60) hpElement.style.color = "lime";
-            else if (myHp > 30) hpElement.style.color = "orange";
-            else hpElement.style.color = "red";
+            else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red";
         }
 
         function takeDamage(dmg) {
@@ -300,6 +332,10 @@
             if (controlMode === 'pvo') { fireDelay = 200; dmg = 30; }
             if (now - lastShootTime < fireDelay) return;
             lastShootTime = now;
+            
+            // Задаем цель для отдачи (Оружие дергается назад)
+            recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.15; 
+
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
             let bId = 'b_' + myId + '_' + now;
@@ -367,7 +403,7 @@
         });
 
         // ==========================================
-        // 9. ВВОД И ФИКС ЗАХВАТА МЫШИ (ПОЛНЫЙ ФИКС ESC И TAB)
+        // 9. ВВОД
         // ==========================================
         const keys = {};
         window.addEventListener('keydown', e => { 
@@ -392,29 +428,22 @@
         });
         window.addEventListener('keyup', e => keys[e.code] = false);
 
-        // Отслеживаем потерю фокуса мыши (когда нажали Esc или Tab)
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
                 if (document.pointerLockElement === document.body) {
-                    isPaused = false;
-                    document.getElementById('pauseScreen').style.display = 'none';
+                    isPaused = false; document.getElementById('pauseScreen').style.display = 'none';
                 } else {
-                    isPaused = true;
-                    document.getElementById('pauseScreen').style.display = 'flex';
-                    // Сбрасываем кнопки ходьбы при паузе, чтобы юнит не бежал сам
+                    isPaused = true; document.getElementById('pauseScreen').style.display = 'flex';
                     for(let k in keys) keys[k] = false;
                 }
             }
         });
 
-        // Клик мышкой - возвращаем фокус ИЛИ стреляем
         window.addEventListener('mousedown', e => { 
             if (!inGame) return;
             if (document.pointerLockElement !== document.body) {
-                document.body.requestPointerLock(); // Кликнули - вернулись в игру
-            } else {
-                shoot(); // Если мышка уже захвачена - стреляем
-            }
+                document.body.requestPointerLock();
+            } else { shoot(); }
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -429,8 +458,9 @@
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
-            if (!inGame || isPaused) return; // Если пауза - игра замирает
+            if (!inGame || isPaused) return;
 
+            // Логика кулдауна Шахеда
             if (controlMode !== 'shahed') {
                 if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) {
                     document.getElementById('cooldown').innerText = "Шахед: [ ГОТОВ (Q) ]"; document.getElementById('cooldown').style.color = "lime";
@@ -439,6 +469,8 @@
                     document.getElementById('cooldown').innerText = `Шахед: [ ${left}с ]`; document.getElementById('cooldown').style.color = "red";
                 }
             }
+
+            fpsWeaponGroup.visible = (controlMode === 'player'); // Прячем пушку в ПВО и дроне
 
             if (controlMode === 'shahed') {
                 let sSpeed = 0.2; 
@@ -466,11 +498,24 @@
                 if (!checkCollision(myUnit.x + dx, myUnit.z)) myUnit.x += dx;
                 if (!checkCollision(myUnit.x, myUnit.z + dz)) myUnit.z += dz;
 
+                // Анимация оружия (Покачивание при ходьбе + Отдача при выстреле)
+                let swayX = 0; let swayY = 0;
                 if (dx !== 0 || dz !== 0) {
-                    headBobTimer += 0.2; camera.position.set(myUnit.x, playerHeight + Math.abs(Math.sin(headBobTimer)) * 0.15, myUnit.z);
+                    headBobTimer += 0.2; 
+                    camera.position.set(myUnit.x, playerHeight + Math.abs(Math.sin(headBobTimer)) * 0.15, myUnit.z);
+                    swayX = Math.sin(headBobTimer * 0.5) * 0.02; // Оружие качается влево-вправо
+                    swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; // Оружие качается вверх-вниз
                 } else {
                     camera.position.set(myUnit.x, playerHeight, myUnit.z);
                 }
+
+                // Плавное возвращение оружия на место после выстрела
+                recoilOffset += (recoilTarget - recoilOffset) * 0.2; // Плавность отдачи
+                recoilTarget *= 0.8; // Затухание отдачи
+                
+                // Применяем позицию и поворот к оружию
+                fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset);
+                fpsWeaponGroup.rotation.x = recoilOffset * 0.5; // Ствол немного задирается вверх
 
                 db.ref('players/' + myId).update({ x: myUnit.x, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
 
@@ -510,6 +555,8 @@
             
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block';
             
+            buildFpsWeapon(myClass); // Создаем 3D модель пушки в руках!
+
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.z = spawn.z;
             db.ref('players/' + myId).set({ x: myUnit.x, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam });
             db.ref('players/' + myId).onDisconnect().remove();
