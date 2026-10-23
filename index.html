@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Фикс Багов</title>
+    <title>Окопная Война: Фикс Регистрации Урона</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         
@@ -14,6 +14,7 @@
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
         #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
         
+        /* СНАЙПЕРСКИЙ ПРИЦЕЛ */
         #sniperScope { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 20%, black 70%); display: none; z-index: 11; pointer-events: none; }
         #sniperScope::before, #sniperScope::after { content: ''; position: absolute; background: black; }
         #sniperScope::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
@@ -33,7 +34,7 @@
         
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
-        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
+        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
@@ -72,7 +73,7 @@
 
     <div id="pauseScreen">
         <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
-        <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Бой продолжается! Кликни, чтобы вернуться</p>
+        <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Кликни, чтобы вернуться в бой</p>
     </div>
 
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
@@ -311,6 +312,18 @@
             }
         }
 
+        function createPvoModel() {
+            const group = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
+            base.position.y = 0.75;
+            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
+            turret.position.y = 1.75; turret.name = "turret";
+            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
+            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
+            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
+            return group;
+        }
+
         const playerMeshes = {};
         db.ref('players').on('value', snap => {
             serverPlayers = snap.val() || {}; 
@@ -328,19 +341,6 @@
             }
         });
 
-        // ПВО МОДЕЛЬ
-        function createPvoModel() {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
-            base.position.y = 0.75;
-            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
-            turret.position.y = 1.75; turret.name = "turret";
-            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
-            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
-            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
-            return group;
-        }
-
         const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}];
         const pvoMeshes = {};
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
@@ -356,10 +356,15 @@
         });
 
         // ==========================================
-        // 6. БОЕВАЯ СИСТЕМА (ОРУЖИЕ, ГРАНАТЫ, МИНЫ)
+        // 6. БОЕВАЯ СИСТЕМА И SHOOTER AUTHORITY
         // ==========================================
         let activeBullets = {}; let activeGrenades = {}; let activeDrones = {}; let activeMines = {};
         let particles = []; let lastShootTime = 0;
+
+        function updateHpUi() {
+            let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp;
+            if (myHp > 60) hpElement.style.color = "lime"; else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red";
+        }
 
         function showHitmarker() {
             document.getElementById('hitmarker').style.display = 'block'; playHitSound();
@@ -380,11 +385,15 @@
                 document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block';
                 document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove();
             }
-            controlMode = 'player'; myHp = 100; document.getElementById('hpDisplay').innerText = myHp; document.getElementById('hpDisplay').style.color = "lime";
-            resetZoom();
+            if (controlMode === 'pvo') {
+                db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null;
+                document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
+            }
+            controlMode = 'player'; myHp = 100; updateHpUi(); resetZoom();
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
+        // ПОЛУЧЕНИЕ УРОНА ИЗ БАЗЫ (РАБОТАЕТ ДАЖЕ В ПАУЗЕ)
         db.ref('killfeed').on('child_added', snap => {
             let k = snap.val();
             let div = document.createElement('div'); div.className = 'kill-entry';
@@ -407,19 +416,20 @@
             recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
             
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            let bSpeed = (myClass === 'снайпер') ? 2.5 : 1.5; if (controlMode === 'pvo') bSpeed = 3.0; 
+            let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
             
             let bId = 'b_' + myId + '_' + now;
             db.ref('bullets/' + bId).set({
                 owner: myId, team: myTeam, cls: myClass, dmg: dmg, 
                 x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed
+                vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo'
             });
-            setTimeout(() => db.ref('bullets/' + bId).remove(), 1500);
+            setTimeout(() => db.ref('bullets/' + bId).remove(), 1000);
         }
 
         db.ref('bullets').on('child_added', snap => {
-            let b = snap.val(); let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
+            let b = snap.val(); let bColor = b.isPvo ? 0x00ff00 : (b.team === 'red' ? 0xff5555 : 0x5555ff);
+            let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: bColor }));
             mesh.position.set(b.x, b.y, b.z); mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
             scene.add(mesh); activeBullets[snap.key] = { data: b, mesh: mesh };
         });
@@ -437,7 +447,7 @@
             });
             setTimeout(() => {
                 if(activeGrenades[gId]) {
-                    db.ref('explosions').push({ x: activeGrenades[gId].mesh.position.x, y: activeGrenades[gId].mesh.position.y, z: activeGrenades[gId].mesh.position.z, team: myTeam, cls: myClass });
+                    db.ref('explosions').push({ x: activeGrenades[gId].mesh.position.x, y: activeGrenades[gId].mesh.position.y, z: activeGrenades[gId].mesh.position.z, team: myTeam, cls: myClass, owner: myId });
                     db.ref('grenades/' + gId).remove();
                 }
             }, 2500);
@@ -479,7 +489,7 @@
             controlMode = 'player'; lastDroneTime = Date.now(); stopDroneSound();
             document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block';
             document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
-            db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass });
+            db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass, owner: myId });
             db.ref('drones/' + myId).remove();
         }
 
@@ -500,10 +510,26 @@
 
         db.ref('explosions').on('child_added', snap => {
             let exp = snap.val(); playExplosionSound();
-            if (exp.team !== myTeam && controlMode !== 'shahed') {
-                let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
-                if (dist < 6) { myHp -= 100; if(myHp <= 0) die(exp); } else if (dist < 12) { myHp -= 50; document.getElementById('hpDisplay').innerText = myHp; if(myHp <= 0) die(exp); }
+            
+            // Если Я создал взрыв, я вычисляю урон по врагам (Шутер Авторити)
+            if (exp.owner === myId) {
+                for (let pId in serverPlayers) {
+                    let p = serverPlayers[pId];
+                    if (p.team !== myTeam) {
+                        let dist = Math.sqrt(Math.pow(p.x - exp.x, 2) + Math.pow((p.y||0) - exp.y, 2) + Math.pow(p.z - exp.z, 2));
+                        if (dist < 6) { db.ref('players/' + pId + '/hits').push({ dmg: 100, killerData: { team: myTeam, cls: myClass } }); showHitmarker(); } 
+                        else if (dist < 12) { db.ref('players/' + pId + '/hits').push({ dmg: 50, killerData: { team: myTeam, cls: myClass } }); showHitmarker(); }
+                    }
+                }
             }
+            
+            // Урон по себе
+            if (controlMode !== 'shahed') {
+                let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
+                if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } 
+                else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp<=0) die(exp); }
+            }
+
             for (let i = 0; i < 15; i++) {
                 let color = Math.random() > 0.5 ? 0x444444 : (Math.random() > 0.5 ? 0x222222 : 0xff5500); 
                 let m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
@@ -519,12 +545,8 @@
         window.addEventListener('contextmenu', e => e.preventDefault());
 
         const keys = {};
-        window.addEventListener('keydown', e => { 
-            initAudio(); keys[e.code] = true; 
-        });
-        window.addEventListener('keyup', e => { 
-            keys[e.code] = false; 
-        });
+        window.addEventListener('keydown', e => { initAudio(); keys[e.code] = true; });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
         
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
@@ -538,16 +560,14 @@
             if (!inGame) return; 
             if (document.pointerLockElement !== document.body) {
                 let promise = document.body.requestPointerLock();
-                if (promise) promise.catch(err => console.log("Защита браузера: подожди перед захватом мыши"));
+                if (promise) promise.catch(err => console.log("Блок браузера"));
             } else if (!isPaused) { 
                 if (e.button === 2 && myClass === 'снайпер' && controlMode === 'player') {
                     isZoomed = !isZoomed;
                     camera.fov = isZoomed ? SNIPER_FOV : DEFAULT_FOV; camera.updateProjectionMatrix();
                     document.getElementById('sniperScope').style.display = isZoomed ? 'block' : 'none';
                     document.getElementById('crosshair').style.display = isZoomed ? 'none' : 'block';
-                } else if (e.button === 0) {
-                    shoot(); 
-                }
+                } else if (e.button === 0) shoot(); 
             } 
         });
 
@@ -559,7 +579,7 @@
         });
 
         // ==========================================
-        // 10. ИГРОВОЙ ЦИКЛ (ОТДЕЛЕНА ПАУЗА ОТ СЕТИ)
+        // 10. ИГРОВОЙ ЦИКЛ
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
@@ -584,44 +604,47 @@
                 if (checkCollision(g.mesh.position.x, g.mesh.position.z + g.vz, g.mesh.position.y)) { g.vz = -g.vz * 0.5; }
             }
 
+            // ФИКС РЕГИ И ТУННЕЛИНГА (SHOOTER AUTHORITY)
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
-                b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
                 
-                if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
-                    if (b.data.owner === myId && !isPaused) db.ref('bullets/' + id).remove();
-                    scene.remove(b.mesh); delete activeBullets[id]; continue;
-                }
-
-                if (b.data.team !== myTeam && controlMode !== 'shahed') {
-                    let dX = b.mesh.position.x - myUnit.x; let dZ = b.mesh.position.z - myUnit.z;
-                    let dist2D = Math.sqrt(dX*dX + dZ*dZ);
-                    
-                    let hit = false;
-                    if (controlMode === 'pvo') {
-                        if (dist2D < 3.0 && Math.abs(b.mesh.position.y - camera.position.y) < 2.5) hit = true;
-                    } else {
-                        if (dist2D < 1.5 && b.mesh.position.y > myUnit.y - 0.5 && b.mesh.position.y < camera.position.y + 0.5) hit = true;
-                    }
-
-                    if (hit) { 
-                        myHp -= b.data.dmg; document.getElementById('hpDisplay').innerText = myHp;
-                        let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6'; setTimeout(() => overlay.style.opacity = '0', 150);
-                        if (myHp <= 0) die(b.data); 
-                        if (!isPaused) db.ref('bullets/' + id).remove(); 
-                    }
-                }
-
                 if (b.data.owner === myId) {
-                    for (let pId in serverPlayers) {
-                        let p = serverPlayers[pId];
-                        if (p.team !== myTeam) {
-                            let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z;
-                            let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
-                            if (Math.sqrt(dX*dX + dZ*dZ) < 1.5 && b.mesh.position.y > pY - 0.5 && b.mesh.position.y < pY + pHeight + 0.5) {
-                                showHitmarker(); if (!isPaused) db.ref('bullets/' + id).remove(); break;
+                    // Мои пули: суб-степпинг для 100% рега (4 шага за кадр)
+                    let steps = 4;
+                    let stepX = b.data.vx / steps; let stepY = b.data.vy / steps; let stepZ = b.data.vz / steps;
+                    let bulletHit = false;
+
+                    for(let s=0; s<steps; s++) {
+                        b.mesh.position.x += stepX; b.mesh.position.y += stepY; b.mesh.position.z += stepZ;
+                        
+                        if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
+                            if (!isPaused) db.ref('bullets/' + id).remove(); bulletHit = true; break;
+                        }
+
+                        for (let pId in serverPlayers) {
+                            let p = serverPlayers[pId];
+                            if (p.team !== myTeam) {
+                                let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z;
+                                let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
+                                // Увеличенный хитбокс (радиус 1.5м)
+                                if (Math.sqrt(dX*dX + dZ*dZ) < 1.5 && b.mesh.position.y > pY - 0.5 && b.mesh.position.y < pY + pHeight + 0.5) {
+                                    showHitmarker(); 
+                                    if (!isPaused) {
+                                        db.ref('players/' + pId + '/hits').push({ dmg: b.data.dmg, killerData: { team: myTeam, cls: myClass } });
+                                        db.ref('bullets/' + id).remove();
+                                    }
+                                    bulletHit = true; break;
+                                }
                             }
                         }
+                        if (bulletHit) break;
+                    }
+                    if(bulletHit) { scene.remove(b.mesh); delete activeBullets[id]; continue; }
+                } else {
+                    // Чужие пули: только визуализация
+                    b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
+                    if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
+                        scene.remove(b.mesh); delete activeBullets[id]; continue;
                     }
                 }
             }
@@ -632,10 +655,8 @@
                 if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
             }
 
-            // ЛОКАЛЬНОЕ ДВИЖЕНИЕ ТОЛЬКО БЕЗ ПАУЗЫ
             if (!isPaused) {
                 isCrouching = (keys['KeyC'] === true || keys['ShiftLeft'] === true);
-                
                 if (keys['Space'] && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
                 if (keys['KeyQ']) { if(myClass === 'инженер') placeMine(); else launchShahed(); keys['KeyQ'] = false; }
                 if (keys['KeyG']) { throwGrenade(); keys['KeyG'] = false; }
@@ -652,8 +673,7 @@
                             if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) {
                                 controlMode = 'pvo'; inPvoId = id; db.ref('pvos/' + id).update({owner: myId});
                                 document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true});
-                                keys['KeyF'] = false; 
-                                break;
+                                keys['KeyF'] = false; break;
                             }
                         }
                     }
@@ -714,10 +734,8 @@
                     }
                     let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
                 }
-
                 let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
             }
-
             renderer.render(scene, camera);
         }
 
@@ -733,9 +751,20 @@
 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
             
-            // Жестко приводим false для первого спавна
+            // Очистка старых хитов
+            db.ref('players/' + myId + '/hits').remove();
+            
             db.ref('players/' + myId).set({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false });
             db.ref('players/' + myId).onDisconnect().remove();
+
+            // ПОДПИСКА НА ПОЛУЧЕНИЕ УРОНА ИЗ БАЗЫ
+            db.ref('players/' + myId + '/hits').on('child_added', snap => {
+                let hitData = snap.val();
+                myHp -= hitData.dmg; updateHpUi();
+                let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6'; setTimeout(() => overlay.style.opacity = '0', 150);
+                if (myHp <= 0) die(hitData.killerData);
+                snap.ref.remove();
+            });
 
             inGame = true; 
             let promise = document.body.requestPointerLock();
