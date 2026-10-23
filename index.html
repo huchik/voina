@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Глобальный фронт</title>
+    <title>Окопная Война: Полный Арсенал</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         
@@ -10,20 +10,24 @@
         body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; }
+        
+        #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
+        #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
         
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
-        #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
-        #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; }
+        #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         
-        /* МИНИ КАРТА */
+        /* КИЛЛФИД */
+        #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+        .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; }
+        @keyframes fadeout { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+
         #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; overflow: hidden; }
         #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
         
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
-        
-        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; }
+        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
@@ -32,8 +36,7 @@
         .team-box { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px solid #333; background: #1a1a1a;}
         .team-red { border-color: #aa3333; }
         .team-blue { border-color: #3333aa; }
-        
-        .btn { padding: 12px 20px; margin: 10px; font-size: 18px; font-family: monospace; background: #222; color: #ddd; border: 2px solid #555; cursor: pointer; transition: 0.2s; width: 250px;}
+        .btn { padding: 12px 20px; margin: 5px; font-size: 16px; font-family: monospace; background: #222; color: #ddd; border: 2px solid #555; cursor: pointer; transition: 0.2s; width: 250px;}
         .team-red .btn:hover { background: #552222; border-color: #ff4444; }
         .team-blue .btn:hover { background: #222255; border-color: #4444ff; }
     </style>
@@ -43,51 +46,53 @@
 </head>
 <body>
     <div id="menu">
-        <h1>ОКОПНАЯ ВОЙНА</h1>
+        <h1>ОКОПНАЯ ВОЙНА: ПОЛНЫЙ АРСЕНАЛ</h1>
         <div class="teams-container">
             <div class="team-box team-red">
-                <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ (ЮГ)</h2>
-                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик</button>
-                <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер</button>
+                <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
+                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик (Автомат, Шахед)</button>
+                <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер (Винтовка, Шахед)</button>
+                <button class="btn" onclick="startGame('red', 'инженер')">Инженер (ПП, Мины)</button>
             </div>
             <div class="team-box team-blue">
-                <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ (СЕВЕР)</h2>
-                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик</button>
-                <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер</button>
+                <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ</h2>
+                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик (Автомат, Шахед)</button>
+                <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер (Винтовка, Шахед)</button>
+                <button class="btn" onclick="startGame('blue', 'инженер')">Инженер (ПП, Мины)</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">WASD - Ходьба | ПРОБЕЛ - Прыжок | C или Shift - Присесть | ЛКМ - Огонь | Q - Шахед | F - ПВО</p>
+        <p style="color: gray; margin-top: 40px;">ЛКМ - Огонь | Q - Спецумение | G - Граната | F - ПВО | C - Присесть</p>
     </div>
 
     <div id="pauseScreen">
         <h1 style="color: white;">ИГРА НА ПАУЗЕ</h1>
-        <p style="font-size: 20px; color: #aaa;">Кликни мышкой в любом месте, чтобы вернуться</p>
+        <p style="font-size: 20px; color: #aaa;">Кликни мышкой, чтобы вернуться</p>
     </div>
 
-    <div id="minimap">
-        <canvas id="minimapCanvas" width="200" height="200"></canvas>
-    </div>
+    <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
+    <div id="killfeed"></div>
 
     <div id="ui" style="display:none;">
         <div id="crosshair">✛</div>
+        <div id="hitmarker">✖</div>
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
-            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ ДЛЯ ПОДРЫВА</div>
+            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ</div>
         </div>
         <div id="hud">
-            Команда: <span id="teamDisplay">...</span> | 
-            Класс: <span id="classDisplay">...</span> <br><br>
-            HP: <span id="hpDisplay" style="color:lime; font-size: 24px; font-weight: bold;">100</span> | 
-            ПВО: <span id="pvoStatus">НЕТ</span>
+            Команда: <span id="teamDisplay">...</span> | Класс: <span id="classDisplay">...</span> <br><br>
+            HP: <span id="hpDisplay" style="color:lime; font-size: 24px; font-weight: bold;">100</span> | ПВО: <span id="pvoStatus">НЕТ</span>
         </div>
-        <div id="cooldown">Шахед: [ ГОТОВ ]</div>
-        <div id="hint">Нажми F</div>
+        <div id="cooldown">
+            Спецумение (Q): <span id="qStatus" style="color:lime">ГОТОВО</span><br>
+            Граната (G): <span id="gStatus" style="color:lime">ГОТОВА</span>
+        </div>
     </div>
     <div id="damageOverlay"></div>
 
     <script>
         // ==========================================
-        // 1. ВСТАВЬ СЮДА СВОЙ КОНФИГ FIREBASE
+        // 1. FIREBASE CONFIG
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyANRufTuyTUYgMmV7Dx5_b8budZNrrkCJs",
@@ -102,402 +107,352 @@
         const db = firebase.database();
 
         // ==========================================
-        // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // 2. WEB AUDIO API (СИНТЕЗ ЗВУКА В БРАУЗЕРЕ)
+        // ==========================================
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let actx = null;
+        let droneOscillator = null; let droneGain = null;
+
+        function initAudio() {
+            if (!actx) actx = new AudioContext();
+            if (actx.state === 'suspended') actx.resume();
+        }
+
+        function playShootSound() {
+            if (!actx) return;
+            const osc = actx.createOscillator(); const gain = actx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(150, actx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(actx.destination);
+            osc.start(); osc.stop(actx.currentTime + 0.1);
+        }
+
+        function playExplosionSound() {
+            if (!actx) return;
+            const bufferSize = actx.sampleRate * 1.5; const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = actx.createBufferSource(); noise.buffer = buffer;
+            const filter = actx.createBiquadFilter(); filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1000, actx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(10, actx.currentTime + 1.5);
+            const gain = actx.createGain(); gain.gain.setValueAtTime(0.3, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 1.5);
+            noise.connect(filter); filter.connect(gain); gain.connect(actx.destination);
+            noise.start();
+        }
+
+        function playHitSound() {
+            if (!actx) return;
+            const osc = actx.createOscillator(); const gain = actx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(800, actx.currentTime);
+            gain.gain.setValueAtTime(0.1, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.05);
+            osc.connect(gain); gain.connect(actx.destination);
+            osc.start(); osc.stop(actx.currentTime + 0.05);
+        }
+
+        function startDroneSound() {
+            if (!actx) return;
+            droneOscillator = actx.createOscillator(); droneGain = actx.createGain();
+            droneOscillator.type = 'sawtooth'; droneOscillator.frequency.value = 60; // Мерзкий звук мопеда
+            droneGain.gain.setValueAtTime(0, actx.currentTime);
+            droneGain.gain.linearRampToValueAtTime(0.1, actx.currentTime + 0.5);
+            droneOscillator.connect(droneGain); droneGain.connect(actx.destination);
+            droneOscillator.start();
+        }
+
+        function stopDroneSound() {
+            if (droneGain) { droneGain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.2); }
+            if (droneOscillator) { droneOscillator.stop(actx.currentTime + 0.3); droneOscillator = null; }
+        }
+
+        // ==========================================
+        // 3. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ==========================================
         const myId = Math.random().toString(36).substring(2, 9);
         let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100;
         let inGame = false; let isPaused = false; 
         
-        let controlMode = 'player'; 
-        let inPvoId = null; 
+        let controlMode = 'player'; let inPvoId = null; 
         
-        let lastDroneTime = -20000;
-        const DRONE_COOLDOWN = 20000;
+        let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000;
+        let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
 
-        let myUnit = { x: 0, y: 0, z: 0 }; 
-        let shahedUnit = { x: 0, y: 0, z: 0 };
+        let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 };
         
-        const speed = 0.15;
-        let isCrouching = false;
-        let headBobTimer = 0;
-        
-        let velocityY = 0;
-        let isGrounded = true;
-
-        let yaw = 0; let pitch = 0;
-        let recoilOffset = 0; let recoilTarget = 0;
+        const speed = 0.15; let isCrouching = false; let headBobTimer = 0;
+        let velocityY = 0; let isGrounded = true;
+        let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0;
 
         const spawnPoints = {
             'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}],
             'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}]
         };
-
-        function getSpawn(team) {
-            let pts = spawnPoints[team];
-            return pts[Math.floor(Math.random() * pts.length)];
-        }
+        function getSpawn(team) { return spawnPoints[team][Math.floor(Math.random() * spawnPoints[team].length)]; }
 
         // ==========================================
-        // 3. 3D СЦЕНА
+        // 4. 3D СЦЕНА, КАРТА, ФИЗИКА
         // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x758c9e);
-        scene.fog = new THREE.FogExp2(0x758c9e, 0.012);
+        scene.background = new THREE.Color(0x6e7b85);
+        scene.fog = new THREE.FogExp2(0x6e7b85, 0.012);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
         scene.add(camera);
-
         const renderer = new THREE.WebGLRenderer({ antialias: false });
-        renderer.setPixelRatio(0.3);
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(0.3); renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
         scene.add(new THREE.AmbientLight(0x555555));
-        const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
-        dirLight.position.set(20, 50, -20);
-        scene.add(dirLight);
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8); dirLight.position.set(20, 50, -20); scene.add(dirLight);
 
-        const fpsWeaponGroup = new THREE.Group();
-        camera.add(fpsWeaponGroup);
-
+        const fpsWeaponGroup = new THREE.Group(); camera.add(fpsWeaponGroup);
         function buildFpsWeapon(cls) {
             while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
-            const matDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a, roughness: 0.8});
-            const matWood = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
-
+            const mDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a}); const mWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
             if (cls === 'снайпер') {
-                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), matDark); barrel.position.set(0, 0, -0.4);
-                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), matWood); stock.position.set(0, -0.04, 0.3);
-                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), matDark); scope.position.set(0, 0.05, 0.1);
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), mDark); barrel.position.set(0, 0, -0.4);
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), mWood); stock.position.set(0, -0.04, 0.3);
+                let scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), mDark); scope.position.set(0, 0.05, 0.1);
                 fpsWeaponGroup.add(barrel, stock, scope);
+            } else if (cls === 'инженер') {
+                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5).rotateX(Math.PI/2), mDark); barrel.position.set(0, 0, -0.1);
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1);
+                fpsWeaponGroup.add(barrel, body); // Компактный ПП
             } else {
-                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), matDark); barrel.position.set(0, 0, -0.2);
-                const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), matDark); body.position.set(0, -0.03, 0.1);
-                const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), matDark); mag.position.set(0, -0.15, 0.1);
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), mDark); barrel.position.set(0, 0, -0.2);
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), mDark); body.position.set(0, -0.03, 0.1);
+                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), mDark); mag.position.set(0, -0.15, 0.1);
                 fpsWeaponGroup.add(barrel, body, mag);
             }
             fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
         }
 
-        // ==========================================
-        // 4. ГЕНЕРАЦИЯ КАРТЫ
-        // ==========================================
-        const mapData = []; 
-        const wallsGroup = new THREE.Group();
-        
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35, roughness: 1 }));
-        floor.rotation.x = -Math.PI / 2;
-        scene.add(floor);
-        
-        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6e5a40, roughness: 1 });
-        const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.9 });
+        const mapData = []; const wallsGroup = new THREE.Group();
+        scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
         
         function createWall(x, z, w, h, d) {
-            let mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dirtMat);
-            mesh.position.set(x, h/2, z);
-            wallsGroup.add(mesh);
-            mapData.push({ x: x, z: z, w: w, d: d, h: h, type: 'wall' });
+            let m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x6e5a40 }));
+            m.position.set(x, h/2, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: w, d: d, h: h });
         }
-
         function createBush(x, z, r) {
-            let mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), bushMat);
-            mesh.position.set(x, r, z);
-            wallsGroup.add(mesh);
-            mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2, type: 'bush' }); 
+            let m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
+            m.position.set(x, r, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 }); 
         }
-
-        createWall(0, -45, 200, 1.0, 2); 
-        createWall(-55, -53, 90, 1.6, 2); 
-        createWall(55, -53, 90, 1.6, 2);  
-        
-        createWall(0, 45, 200, 1.0, 2); 
-        createWall(-55, 53, 90, 1.6, 2); 
-        createWall(55, 53, 90, 1.6, 2);  
-
-        createBush(-40, 0, 8);   
-        createBush(25, -20, 5);  
-        createBush(55, 10, 6);   
-        createBush(-5, 15, 3);   
-        createBush(5, -10, 4);   
-
+        createWall(0, -45, 200, 1.0, 2); createWall(-55, -53, 90, 1.6, 2); createWall(55, -53, 90, 1.6, 2);  
+        createWall(0, 45, 200, 1.0, 2); createWall(-55, 53, 90, 1.6, 2); createWall(55, 53, 90, 1.6, 2);  
+        createBush(-40, 0, 8); createBush(25, -20, 5); createBush(55, 10, 6); createBush(-5, 15, 3); createBush(5, -10, 4);   
         scene.add(wallsGroup);
 
         function checkCollision(nx, nz, ny) {
             if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; 
-            for(let b of mapData) {
-                if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4)) {
-                    if (b.h > ny + 0.5) return true; 
-                }
-            }
+            for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4) && b.h > ny + 0.5) return true; }
             return false;
         }
-
         function getFloorHeight(nx, nz) {
             let maxH = 0;
-            for(let b of mapData) {
-                if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2)) {
-                    if (b.h > maxH) maxH = b.h;
-                }
-            }
+            for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; }
             return maxH;
         }
 
         // ==========================================
-        // 5. ГЛОБАЛЬНАЯ ЛИНИЯ ФРОНТА
+        // 5. РАДАР (МИНИ-КАРТА) И ИГРОКИ
         // ==========================================
         let serverPlayers = {}; 
-        
         function drawMinimap() {
-            const canvas = document.getElementById('minimapCanvas');
-            if(!canvas) return;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, 200, 200);
+            const canvas = document.getElementById('minimapCanvas'); if(!canvas) return;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
+            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; ctx.fillRect(0, 45, 200, 10);
+            ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; ctx.fillRect(0, 145, 200, 10);
 
-            // Окопы
-            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; 
-            ctx.fillRect(0, 45, 200, 10);
-            ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; 
-            ctx.fillRect(0, 145, 200, 10);
+            let allActive = [];
+            if (controlMode !== 'shahed') allActive.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
+            for (let id in serverPlayers) if (!serverPlayers[id].inPvo) allActive.push({ x: serverPlayers[id].x, z: serverPlayers[id].z, team: serverPlayers[id].team });
 
-            // СОБИРАЕМ ВСЕХ ИГРОКОВ (и себя, и серверных) для расчета фронта
-            let allActivePlayers = [];
-            if (controlMode !== 'shahed') {
-                allActivePlayers.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
-            }
-            for (let id in serverPlayers) {
-                let p = serverPlayers[id];
-                if (!p.inPvo) {
-                    allActivePlayers.push({ x: p.x, z: p.z, team: p.team });
-                }
-            }
-
-            // Массив изгибов для каждой точки X на карте
             let bumpMap = new Array(201).fill(0);
-
-            // Считаем влияние каждого игрока
-            for (let p of allActivePlayers) {
-                let px = p.x + 100;
-                let py = p.z + 100;
-                
-                let pull = 0;
-                // Игрок влияет на фронт, только если вышел за свой окоп
-                if (p.team === 'red' && py < 115) {
-                    pull = (py - 15) - 100; // Тянет линию ВВЕРХ (отрицательное значение)
-                } else if (p.team === 'blue' && py > 85) {
-                    pull = (py + 15) - 100; // Тянет линию ВНИЗ (положительное значение)
-                }
-
+            for (let p of allActive) {
+                let px = p.x + 100; let py = p.z + 100; let pull = 0;
+                if (p.team === 'red' && py < 115) pull = (py - 15) - 100;
+                else if (p.team === 'blue' && py > 85) pull = (py + 15) - 100;
                 if (pull !== 0) {
                     for (let x = 0; x <= 200; x++) {
                         let dx = Math.abs(x - px);
-                        if (dx < 35) { // Радиус влияния одного игрока = 35 пикселей
-                            let pct = Math.cos((dx / 35) * (Math.PI / 2));
-                            // Складываем все изгибы (bump)
-                            bumpMap[x] += pull * Math.pow(pct, 1.5);
-                        }
+                        if (dx < 35) bumpMap[x] += pull * Math.pow(Math.cos((dx / 35) * (Math.PI / 2)), 1.5);
                     }
                 }
             }
 
-            // РИСУЕМ ГЛОБАЛЬНУЮ ЛИНИЮ
-            ctx.strokeStyle = '#ff0000';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            
+            ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5; ctx.beginPath();
             for(let x = 0; x <= 200; x++) {
                 let finalY = 100 + bumpMap[x];
-                
-                // Ограничиваем фронт, чтобы он не залезал за окопы врага
-                if (finalY < 55) finalY = 55;
-                if (finalY > 145) finalY = 145;
-                
-                if (x === 0) ctx.moveTo(x, finalY);
-                else ctx.lineTo(x, finalY);
+                if (finalY < 55) finalY = 55; if (finalY > 145) finalY = 145;
+                if (x === 0) ctx.moveTo(x, finalY); else ctx.lineTo(x, finalY);
             }
             ctx.stroke();
 
-            // Отрисовка иконок
             for (let id in serverPlayers) {
-                let p = serverPlayers[id];
-                if (p.inPvo) continue; 
-                let px = p.x + 100;
-                let py = p.z + 100;
-
+                let p = serverPlayers[id]; if (p.inPvo) continue; 
                 ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
-                ctx.beginPath();
-                ctx.arc(px, py, 3, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(p.x + 100, p.z + 100, 3, 0, Math.PI * 2); ctx.fill();
             }
-            
-            // Я сам (Шестиугольник)
             if (controlMode !== 'shahed') {
-                let px = myUnit.x + 100;
-                let py = myUnit.z + 100;
-                ctx.strokeStyle = '#ff0000'; 
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; 
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                let r = 12; 
+                let px = myUnit.x + 100; let py = myUnit.z + 100;
+                ctx.strokeStyle = '#ff0000'; ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; ctx.lineWidth = 1.5; ctx.beginPath();
                 for (let i = 0; i < 6; i++) {
                     let angle = (i * Math.PI / 3) - Math.PI / 2;
-                    let hx = px + r * Math.cos(angle);
-                    let hy = py + r * Math.sin(angle);
-                    if (i === 0) ctx.moveTo(hx, hy);
-                    else ctx.lineTo(hx, hy);
+                    let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
                 }
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-                
-                ctx.fillStyle = '#ff0000';
-                ctx.font = '8px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText("ИГРОК", px, py);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
             }
-        }
-
-        // ==========================================
-        // 6. СЕТЬ И МОДЕЛИ
-        // ==========================================
-        function createPlayerModel(team) {
-            const group = new THREE.Group();
-            let color = team === 'red' ? 0xaa3333 : 0x3333aa;
-            const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), new THREE.MeshStandardMaterial({ color: color }));
-            body.position.y = 0.6; body.name = "body";
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xddaa88 }));
-            head.position.y = 1.4; head.name = "head";
-            const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            gun.position.set(0.3, 0.9, -0.4); gun.name = "gun";
-            group.add(body); group.add(head); group.add(gun);
-            return group;
-        }
-
-        function createPvoModel() {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
-            base.position.y = 0.75;
-            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
-            turret.position.y = 1.75; turret.name = "turret";
-            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
-            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
-            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
-            return group;
         }
 
         const playerMeshes = {};
         db.ref('players').on('value', snap => {
             serverPlayers = snap.val() || {}; 
-            for (let id in playerMeshes) {
-                if (!serverPlayers[id] || serverPlayers[id].inPvo) { scene.remove(playerMeshes[id]); delete playerMeshes[id]; }
-            }
+            for (let id in playerMeshes) { if (!serverPlayers[id] || serverPlayers[id].inPvo) { scene.remove(playerMeshes[id]); delete playerMeshes[id]; } }
             for (let id in serverPlayers) {
-                if (id === myId || serverPlayers[id].inPvo) continue;
-                let p = serverPlayers[id];
+                if (id === myId || serverPlayers[id].inPvo) continue; let p = serverPlayers[id];
                 if (!playerMeshes[id]) {
-                    playerMeshes[id] = createPlayerModel(p.team); scene.add(playerMeshes[id]);
+                    const g = new THREE.Group(); let color = p.team === 'red' ? 0xaa3333 : 0x3333aa;
+                    let b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), new THREE.MeshStandardMaterial({ color: color })); b.position.y = 0.6; 
+                    let h = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xddaa88 })); h.position.y = 1.4; h.name = "head";
+                    g.add(b); g.add(h); scene.add(g); playerMeshes[id] = g;
                 }
-                playerMeshes[id].position.set(p.x, p.y || 0, p.z); 
-                playerMeshes[id].rotation.y = p.yaw; 
-                playerMeshes[id].getObjectByName("head").rotation.x = p.pitch;
-                
-                if (p.crouch) playerMeshes[id].scale.set(1, 0.5, 1);
-                else playerMeshes[id].scale.set(1, 1, 1);
-            }
-        });
-
-        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}];
-        const pvoMeshes = {};
-        pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
-
-        db.ref('pvos').on('value', snap => {
-            const serverPvos = snap.val() || {};
-            for (let id in serverPvos) {
-                if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) {
-                    let turret = pvoMeshes[id].getObjectByName("turret");
-                    turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch;
-                }
+                playerMeshes[id].position.set(p.x, p.y || 0, p.z); playerMeshes[id].rotation.y = p.yaw; playerMeshes[id].getObjectByName("head").rotation.x = p.pitch;
+                if (p.crouch) playerMeshes[id].scale.set(1, 0.5, 1); else playerMeshes[id].scale.set(1, 1, 1);
             }
         });
 
         // ==========================================
-        // 7. УРОН, ОРУЖИЕ, ШАХЕДЫ
+        // 6. БОЕВАЯ СИСТЕМА (ОРУЖИЕ, ГРАНАТЫ, МИНЫ)
         // ==========================================
-        function updateHpUi() {
-            let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp;
-            if (myHp > 60) hpElement.style.color = "lime"; else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red";
+        let activeBullets = {}; let activeGrenades = {}; let activeDrones = {}; let activeMines = {};
+        let particles = []; let lastShootTime = 0;
+
+        function showHitmarker() {
+            document.getElementById('hitmarker').style.display = 'block';
+            playHitSound();
+            setTimeout(() => document.getElementById('hitmarker').style.display = 'none', 100);
         }
 
-        function takeDamage(dmg) {
-            myHp -= dmg; updateHpUi();
-            let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6';
-            setTimeout(() => overlay.style.opacity = '0', 150);
-            if (myHp <= 0) die();
-        }
-
-        function die() {
+        function die(killerData) {
+            if (killerData) {
+                // Отправляем лог в киллфид
+                let log = { kTeam: killerData.team, kClass: killerData.cls, vTeam: myTeam, vClass: myClass };
+                db.ref('killfeed').push(log);
+            }
             if (controlMode === 'shahed') {
-                document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block';
-                document.getElementById('minimap').style.display = 'block';
+                stopDroneSound(); document.getElementById('droneOverlay').style.display = 'none'; 
+                document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block';
                 document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove();
             }
-            if (controlMode === 'pvo') {
-                db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null;
-                document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
-            }
-            controlMode = 'player'; myHp = 100; updateHpUi();
+            controlMode = 'player'; myHp = 100; document.getElementById('hpDisplay').innerText = myHp; document.getElementById('hpDisplay').style.color = "lime";
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
-        let activeBullets = {}; let activeDrones = {}; let explosions = []; let lastShootTime = 0;
+        db.ref('killfeed').on('child_added', snap => {
+            let k = snap.val();
+            let div = document.createElement('div'); div.className = 'kill-entry';
+            let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
+            div.innerHTML = `<span style="color:${kColor}">${k.kClass.toUpperCase()}</span> 💥 <span style="color:${vColor}">${k.vClass.toUpperCase()}</span>`;
+            document.getElementById('killfeed').appendChild(div);
+            setTimeout(() => div.remove(), 5000);
+            if(Object.keys(snap.val()).length > 10) snap.ref.remove(); // Очистка старых
+        });
 
         function shoot() {
             if (controlMode === 'shahed' || isPaused) return; 
             let now = Date.now();
-            let fireDelay = (myClass === 'штурмовик') ? 120 : 700; let dmg = (myClass === 'снайпер') ? 50 : 20;
-            if (controlMode === 'pvo') { fireDelay = 200; dmg = 30; }
-            if (now - lastShootTime < fireDelay) return;
-            lastShootTime = now;
+            let fireDelay = 120; let dmg = 20;
+            if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; }
+            if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
             
-            recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.15; 
+            if (now - lastShootTime < fireDelay) return;
+            lastShootTime = now; playShootSound();
+            recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
+            
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
+            let bSpeed = (myClass === 'снайпер') ? 4.0 : 2.0; 
             
             let bId = 'b_' + myId + '_' + now;
             db.ref('bullets/' + bId).set({
-                owner: myId, team: myTeam, dmg: dmg, 
+                owner: myId, team: myTeam, cls: myClass, dmg: dmg, 
                 x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo'
+                vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed
             });
-            setTimeout(() => db.ref('bullets/' + bId).remove(), 1500);
+            setTimeout(() => db.ref('bullets/' + bId).remove(), 1000);
         }
 
         db.ref('bullets').on('child_added', snap => {
-            let b = snap.val(); let bColor = b.isPvo ? 0x00ff00 : (b.team === 'red' ? 0xff5555 : 0x5555ff);
-            let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: bColor }));
+            let b = snap.val(); let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: 0xffcc00 }));
             mesh.position.set(b.x, b.y, b.z); mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
             scene.add(mesh); activeBullets[snap.key] = { data: b, mesh: mesh };
         });
-        db.ref('bullets').on('child_removed', snap => {
-            if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; }
-        });
+        db.ref('bullets').on('child_removed', snap => { if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; } });
 
+        // ФИЗИКА ГРАНАТ (Локальная симуляция для всех на основе стартового вектора)
+        function throwGrenade() {
+            if (Date.now() - lastGrenadeTime < GRENADE_COOLDOWN) return;
+            lastGrenadeTime = Date.now();
+            let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+            let gId = 'g_' + myId + '_' + Date.now();
+            db.ref('grenades/' + gId).set({
+                owner: myId, team: myTeam, cls: myClass,
+                x: camera.position.x, y: camera.position.y, z: camera.position.z,
+                vx: dir.x * 0.6, vy: dir.y * 0.6 + 0.3, vz: dir.z * 0.6
+            });
+            // Взрыв через 2.5 сек
+            setTimeout(() => {
+                if(activeGrenades[gId]) {
+                    db.ref('explosions').push({ x: activeGrenades[gId].mesh.position.x, y: activeGrenades[gId].mesh.position.y, z: activeGrenades[gId].mesh.position.z, team: myTeam, cls: myClass });
+                    db.ref('grenades/' + gId).remove();
+                }
+            }, 2500);
+        }
+
+        db.ref('grenades').on('child_added', snap => {
+            let g = snap.val(); 
+            let mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15, 0), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+            mesh.position.set(g.x, g.y, g.z); scene.add(mesh);
+            activeGrenades[snap.key] = { data: g, mesh: mesh, vx: g.vx, vy: g.vy, vz: g.vz };
+        });
+        db.ref('grenades').on('child_removed', snap => { if(activeGrenades[snap.key]) { scene.remove(activeGrenades[snap.key].mesh); delete activeGrenades[snap.key]; } });
+
+        // МИНЫ ИНЖЕНЕРА
+        function placeMine() {
+            if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
+            lastDroneTime = Date.now();
+            let mId = 'm_' + myId + '_' + Date.now();
+            db.ref('mines/' + mId).set({ owner: myId, team: myTeam, cls: myClass, x: myUnit.x, y: myUnit.y, z: myUnit.z });
+        }
+        
+        db.ref('mines').on('child_added', snap => {
+            let m = snap.val();
+            let mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            mesh.position.set(m.x, m.y + 0.05, m.z); scene.add(mesh);
+            activeMines[snap.key] = { data: m, mesh: mesh };
+        });
+        db.ref('mines').on('child_removed', snap => { if(activeMines[snap.key]) { scene.remove(activeMines[snap.key].mesh); delete activeMines[snap.key]; } });
+
+        // ШАХЕДЫ
         function launchShahed() {
-            if (controlMode !== 'player' || isPaused) return;
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
-            document.getElementById('droneOverlay').style.display = 'block'; 
-            document.getElementById('hud').style.display = 'none';
-            document.getElementById('minimap').style.display = 'none'; 
-            document.getElementById('crosshair').innerText = '[- + -]';
+            document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none';
+            document.getElementById('minimap').style.display = 'none'; document.getElementById('crosshair').innerText = '[- + -]';
+            startDroneSound();
         }
 
         function explodeShahed() {
-            controlMode = 'player'; lastDroneTime = Date.now();
-            document.getElementById('droneOverlay').style.display = 'none'; 
-            document.getElementById('hud').style.display = 'block';
-            document.getElementById('minimap').style.display = 'block';
-            document.getElementById('crosshair').innerText = '✛';
-            db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam });
+            controlMode = 'player'; lastDroneTime = Date.now(); stopDroneSound();
+            document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block';
+            document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
+            db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass });
             db.ref('drones/' + myId).remove();
         }
 
@@ -516,127 +471,107 @@
             }
         });
 
+        // ВЗРЫВЫ И ЧАСТИЦЫ
         db.ref('explosions').on('child_added', snap => {
-            let exp = snap.val();
+            let exp = snap.val(); playExplosionSound();
+            
+            // Урон
             if (exp.team !== myTeam && controlMode !== 'shahed') {
                 let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
-                if (dist < 6) takeDamage(100); else if (dist < 12) takeDamage(50);
+                if (dist < 6) { myHp -= 100; if(myHp <= 0) die(exp); } else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp <= 0) die(exp); }
             }
-            let mesh = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff5500, transparent: true, opacity: 0.8 }));
-            mesh.position.set(exp.x, exp.y, exp.z); scene.add(mesh);
-            explosions.push({ mesh: mesh, life: 1.0 });
-            setTimeout(() => snap.ref.remove(), 2000); 
+
+            // Объемные частицы дыма и грязи
+            for (let i = 0; i < 15; i++) {
+                let color = Math.random() > 0.5 ? 0x444444 : (Math.random() > 0.5 ? 0x222222 : 0xff5500); // Дым и огонь
+                let m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
+                m.position.set(exp.x + (Math.random()-0.5)*2, exp.y + (Math.random()-0.5)*2, exp.z + (Math.random()-0.5)*2);
+                scene.add(m);
+                particles.push({ mesh: m, vx: (Math.random()-0.5)*0.8, vy: Math.random()*0.8, vz: (Math.random()-0.5)*0.8, life: 1.0 });
+            }
+            setTimeout(() => snap.ref.remove(), 1000); 
         });
 
         // ==========================================
-        // 8. ВВОД
+        // 9. ВВОД
         // ==========================================
         const keys = {};
         window.addEventListener('keydown', e => { 
-            keys[e.code] = true; 
+            initAudio(); keys[e.code] = true; 
             if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = true;
-            
-            if (e.code === 'Space' && inGame && controlMode === 'player' && isGrounded && !isCrouching) {
-                velocityY = 0.28; 
-                isGrounded = false;
-            }
-
-            if (e.code === 'KeyF' && inGame && controlMode !== 'shahed' && !isPaused) {
-                if (controlMode === 'pvo') {
-                    db.ref('pvos/' + inPvoId).update({owner: null});
-                    myUnit.x = pvoMeshes[inPvoId].position.x - 3; myUnit.z = pvoMeshes[inPvoId].position.z; myUnit.y = 0;
-                    controlMode = 'player'; inPvoId = null;
-                    document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
-                } else {
-                    for (let id in pvoMeshes) {
-                        if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) {
-                            controlMode = 'pvo'; inPvoId = id; db.ref('pvos/' + id).update({owner: myId});
-                            document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true});
-                            break;
-                        }
-                    }
-                }
-            }
-            if (e.code === 'KeyQ' && inGame && !isPaused) launchShahed();
+            if (e.code === 'Space' && inGame && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
+            if (e.code === 'KeyQ' && inGame && !isPaused) { if(myClass === 'инженер') placeMine(); else launchShahed(); }
+            if (e.code === 'KeyG' && inGame && !isPaused) throwGrenade();
         });
-        
-        window.addEventListener('keyup', e => {
-            keys[e.code] = false;
-            if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = false;
-        });
-
+        window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = false; });
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
-                if (document.pointerLockElement === document.body) {
-                    isPaused = false; document.getElementById('pauseScreen').style.display = 'none';
-                } else {
-                    isPaused = true; document.getElementById('pauseScreen').style.display = 'flex';
-                    for(let k in keys) keys[k] = false; isCrouching = false;
-                }
+                if (document.pointerLockElement === document.body) { isPaused = false; document.getElementById('pauseScreen').style.display = 'none'; } 
+                else { isPaused = true; document.getElementById('pauseScreen').style.display = 'flex'; for(let k in keys) keys[k] = false; isCrouching = false; }
             }
         });
-
-        window.addEventListener('mousedown', e => { 
-            if (!inGame) return;
-            if (document.pointerLockElement !== document.body) document.body.requestPointerLock();
-            else shoot(); 
-        });
-
+        window.addEventListener('mousedown', e => { initAudio(); if (!inGame) return; if (document.pointerLockElement !== document.body) document.body.requestPointerLock(); else shoot(); });
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body && !isPaused) {
-                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002;
-                pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+                yaw -= e.movementX * 0.002; pitch -= e.movementY * 0.002; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
 
         // ==========================================
-        // 9. ИГРОВОЙ ЦИКЛ
+        // 10. ИГРОВОЙ ЦИКЛ
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
             if (!inGame || isPaused) return;
-
             if (controlMode !== 'shahed') drawMinimap();
 
-            if (controlMode !== 'shahed') {
-                if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) {
-                    document.getElementById('cooldown').innerText = "Шахед: [ ГОТОВ (Q) ]"; document.getElementById('cooldown').style.color = "lime";
-                } else {
-                    let left = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000);
-                    document.getElementById('cooldown').innerText = `Шахед: [ ${left}с ]`; document.getElementById('cooldown').style.color = "red";
-                }
-            }
+            // Обновление UI Кулдаунов
+            let qStatus = document.getElementById('qStatus');
+            if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; }
+            else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
+            
+            let gStatus = document.getElementById('gStatus');
+            if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; }
+            else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
 
             fpsWeaponGroup.visible = (controlMode === 'player'); 
 
+            // ЛОГИКА МИН
+            if (controlMode === 'player') {
+                for(let id in activeMines) {
+                    let m = activeMines[id];
+                    if(m.data.team !== myTeam && Math.sqrt(Math.pow(myUnit.x - m.data.x, 2) + Math.pow(myUnit.z - m.data.z, 2)) < 2.0) {
+                        db.ref('explosions').push({ x: m.data.x, y: m.data.y, z: m.data.z, team: m.data.team, cls: m.data.cls });
+                        db.ref('mines/' + id).remove();
+                    }
+                }
+            }
+
+            // ЛОГИКА ГРАНАТ (Физика)
+            for (let id in activeGrenades) {
+                let g = activeGrenades[id];
+                g.vy -= 0.02; // Гравитация
+                g.mesh.position.x += g.vx; g.mesh.position.y += g.vy; g.mesh.position.z += g.vz;
+                g.mesh.rotation.x += 0.1; g.mesh.rotation.z += 0.1;
+                
+                let floorY = getFloorHeight(g.mesh.position.x, g.mesh.position.z);
+                if (g.mesh.position.y < floorY) { g.mesh.position.y = floorY; g.vy = -g.vy * 0.5; g.vx *= 0.7; g.vz *= 0.7; }
+                if (checkCollision(g.mesh.position.x + g.vx, g.mesh.position.z, g.mesh.position.y)) { g.vx = -g.vx * 0.5; }
+                if (checkCollision(g.mesh.position.x, g.mesh.position.z + g.vz, g.mesh.position.y)) { g.vz = -g.vz * 0.5; }
+            }
+
             if (controlMode === 'shahed') {
-                let sSpeed = 0.2; 
-                let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                let sSpeed = 0.3; let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
                 shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
                 camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
-                
                 if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
                 else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
             } 
-            else if (controlMode === 'pvo') {
-                let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
-                db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); document.getElementById('hint').style.display = 'none';
-            } 
             else {
                 let floorY = getFloorHeight(myUnit.x, myUnit.z);
-                
-                if (myUnit.y > floorY) {
-                    velocityY -= 0.015; 
-                    isGrounded = false;
-                }
-                
+                if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; }
                 myUnit.y += velocityY;
-
-                if (myUnit.y <= floorY) {
-                    myUnit.y = floorY;
-                    velocityY = 0;
-                    isGrounded = true;
-                }
+                if (myUnit.y <= floorY) { myUnit.y = floorY; velocityY = 0; isGrounded = true; }
 
                 let currentSpeed = isCrouching ? speed * 0.4 : speed; 
                 let dx = 0, dz = 0;
@@ -651,77 +586,74 @@
                 if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx;
                 if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
 
-                let targetCamOffset = isCrouching ? 0.8 : 1.6;
-                let swayX = 0; let swayY = 0;
-                
-                if ((dx !== 0 || dz !== 0) && isGrounded) {
-                    headBobTimer += (isCrouching ? 0.1 : 0.2); 
-                    swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; 
-                } 
-
+                let targetCamOffset = isCrouching ? 0.8 : 1.6; let swayX = 0; let swayY = 0;
+                if ((dx !== 0 || dz !== 0) && isGrounded) { headBobTimer += (isCrouching ? 0.1 : 0.2); swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; } 
                 camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
-
                 recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
-                fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset);
-                fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
+                fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
 
                 db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
-
-                let canSit = false;
-                for (let id in pvoMeshes) {
-                    if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
-                }
-                document.getElementById('hint').style.display = canSit ? 'block' : 'none';
             }
 
-            let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw;
-            camera.quaternion.setFromEuler(euler);
+            let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
 
+            // Обработка пуль и Хитмаркеров
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
                 b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
                 
                 if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
                     if (b.data.owner === myId) db.ref('bullets/' + id).remove();
-                    scene.remove(b.mesh); delete activeBullets[id];
-                    continue;
+                    scene.remove(b.mesh); delete activeBullets[id]; continue;
                 }
 
+                // Вражеская пуля попала в меня
                 if (b.data.team !== myTeam && controlMode !== 'shahed') {
                     let dX = b.mesh.position.x - myUnit.x; let dZ = b.mesh.position.z - myUnit.z;
-                    let dist2D = Math.sqrt(dX*dX + dZ*dZ);
-                    let bY = b.mesh.position.y; let cY = camera.position.y;
-                    
-                    let hit = false;
-                    if (controlMode === 'pvo') {
-                        if (dist2D < 2.5 && Math.abs(bY - cY) < 2.0) hit = true;
-                    } else {
-                        if (dist2D < 0.8 && bY > myUnit.y && bY < cY + 0.3) hit = true;
+                    if (Math.sqrt(dX*dX + dZ*dZ) < 0.8 && b.mesh.position.y > myUnit.y && b.mesh.position.y < camera.position.y + 0.3) { 
+                        myHp -= b.data.dmg; updateHpUi(); 
+                        let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6'; setTimeout(() => overlay.style.opacity = '0', 150);
+                        if (myHp <= 0) die(b.data); 
+                        db.ref('bullets/' + id).remove(); 
                     }
-                    if (hit) { takeDamage(b.data.dmg); db.ref('bullets/' + id).remove(); }
+                }
+
+                // МОЯ пуля попала во врага (для хитмаркера)
+                if (b.data.owner === myId) {
+                    for (let pId in serverPlayers) {
+                        let p = serverPlayers[pId];
+                        if (p.team !== myTeam) {
+                            let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z;
+                            let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
+                            if (Math.sqrt(dX*dX + dZ*dZ) < 0.8 && b.mesh.position.y > pY && b.mesh.position.y < pY + pHeight) {
+                                showHitmarker(); db.ref('bullets/' + id).remove(); break;
+                            }
+                        }
+                    }
                 }
             }
 
-            for (let i = explosions.length - 1; i >= 0; i--) {
-                let exp = explosions[i]; exp.life -= 0.05;
-                exp.mesh.scale.set(1 + (1-exp.life)*5, 1 + (1-exp.life)*5, 1 + (1-exp.life)*5);
-                exp.mesh.material.opacity = exp.life;
-                if (exp.life <= 0) { scene.remove(exp.mesh); explosions.splice(i, 1); }
+            // Анимация частиц
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.mesh.position.z += p.vz;
+                p.mesh.scale.set(1 + (1-p.life)*2, 1 + (1-p.life)*2, 1 + (1-p.life)*2);
+                p.mesh.material.opacity = p.life;
+                p.life -= 0.02;
+                if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
             }
 
             renderer.render(scene, camera);
         }
 
         window.startGame = function(team, selectedClass) {
+            initAudio();
             myTeam = team; myClass = selectedClass;
             document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ";
             document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
             
-            document.getElementById('menu').style.display = 'none'; 
-            document.getElementById('ui').style.display = 'block';
-            document.getElementById('minimap').style.display = 'block'; 
-            
+            document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; 
             buildFpsWeapon(myClass); 
 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
@@ -731,9 +663,7 @@
             inGame = true; document.body.requestPointerLock(); animate();
         };
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
     </script>
 </body>
 </html>
