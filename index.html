@@ -51,7 +51,7 @@
 </head>
 <body>
     <div id="menu">
-        <h1>ОКОПНАЯ ВОЙНА: ПОЛНЫЙ АРСЕНАЛ</h1>
+        <h1>ОКОПНАЯ ВОЙНА</h1>
         <div class="teams-container">
             <div class="team-box team-red">
                 <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
@@ -76,7 +76,7 @@
 
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
     <div id="killfeed"></div>
-    <div id="sniperScope"></div> <!-- Сетка снайперского прицела -->
+    <div id="sniperScope"></div> 
 
     <div id="ui" style="display:none;">
         <div id="crosshair">✛</div>
@@ -98,7 +98,7 @@
 
     <script>
         // ==========================================
-        // 1. FIREBASE CONFIG
+        // 1. ВСТАВЬ СЮДА СВОЙ КОНФИГ FIREBASE
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyANRufTuyTUYgMmV7Dx5_b8budZNrrkCJs",
@@ -327,6 +327,19 @@
             }
         });
 
+        // ВЕРНУЛ ФУНКЦИЮ ПВО!
+        function createPvoModel() {
+            const group = new THREE.Group();
+            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
+            base.position.y = 0.75;
+            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
+            turret.position.y = 1.75; turret.name = "turret";
+            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
+            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
+            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
+            return group;
+        }
+
         const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}];
         const pvoMeshes = {};
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
@@ -352,7 +365,6 @@
             setTimeout(() => document.getElementById('hitmarker').style.display = 'none', 100);
         }
 
-        // СБРОС ЗУМА
         function resetZoom() {
             isZoomed = false;
             camera.fov = DEFAULT_FOV; camera.updateProjectionMatrix();
@@ -412,7 +424,6 @@
         });
         db.ref('bullets').on('child_removed', snap => { if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; } });
 
-        // ФИЗИКА ГРАНАТ
         function throwGrenade() {
             if (Date.now() - lastGrenadeTime < GRENADE_COOLDOWN) return;
             lastGrenadeTime = Date.now();
@@ -486,7 +497,6 @@
             }
         });
 
-        // ВЗРЫВЫ
         db.ref('explosions').on('child_added', snap => {
             let exp = snap.val(); playExplosionSound();
             if (exp.team !== myTeam && controlMode !== 'shahed') {
@@ -505,7 +515,6 @@
         // ==========================================
         // 9. ВВОД
         // ==========================================
-        // Блокируем стандартное контекстное меню при ПКМ
         window.addEventListener('contextmenu', e => e.preventDefault());
 
         const keys = {};
@@ -532,13 +541,11 @@
                 document.body.requestPointerLock(); 
             } else { 
                 if (e.button === 2 && myClass === 'снайпер' && controlMode === 'player') {
-                    // ПКМ - ПРИЦЕЛИВАНИЕ
                     isZoomed = !isZoomed;
                     camera.fov = isZoomed ? SNIPER_FOV : DEFAULT_FOV; camera.updateProjectionMatrix();
                     document.getElementById('sniperScope').style.display = isZoomed ? 'block' : 'none';
                     document.getElementById('crosshair').style.display = isZoomed ? 'none' : 'block';
                 } else if (e.button === 0) {
-                    // ЛКМ - ВЫСТРЕЛ
                     shoot(); 
                 }
             } 
@@ -546,7 +553,6 @@
 
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body && !isPaused) {
-                // Если мы в прицеле, чувствительность мыши ниже (в 4 раза)
                 let sens = isZoomed ? 0.0005 : 0.002;
                 yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
@@ -567,7 +573,6 @@
             if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; }
             else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
 
-            // Прячем оружие, если включен снайперский прицел
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
             if (controlMode === 'player') {
@@ -595,6 +600,10 @@
                 if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
                 else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
             } 
+            else if (controlMode === 'pvo') {
+                let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
+                db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); document.getElementById('hint').style.display = 'none';
+            } 
             else {
                 let floorY = getFloorHeight(myUnit.x, myUnit.z);
                 if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; }
@@ -621,6 +630,12 @@
                 fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
 
                 db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
+
+                let canSit = false;
+                for (let id in pvoMeshes) {
+                    if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
+                }
+                document.getElementById('hint').style.display = canSit ? 'block' : 'none';
             }
 
             let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
@@ -628,10 +643,12 @@
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
                 b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
+                
                 if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
                     if (b.data.owner === myId) db.ref('bullets/' + id).remove();
                     scene.remove(b.mesh); delete activeBullets[id]; continue;
                 }
+
                 if (b.data.team !== myTeam && controlMode !== 'shahed') {
                     let dX = b.mesh.position.x - myUnit.x; let dZ = b.mesh.position.z - myUnit.z;
                     if (Math.sqrt(dX*dX + dZ*dZ) < 0.8 && b.mesh.position.y > myUnit.y && b.mesh.position.y < camera.position.y + 0.3) { 
@@ -640,6 +657,7 @@
                         if (myHp <= 0) die(b.data); db.ref('bullets/' + id).remove(); 
                     }
                 }
+
                 if (b.data.owner === myId) {
                     for (let pId in serverPlayers) {
                         let p = serverPlayers[pId];
