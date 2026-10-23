@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Фикс Камеры и Кулдауна</title>
+    <title>Окопная Война: Победа и Поражение</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -19,6 +19,8 @@
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
+        
+        #scoreBoard { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; border: 2px solid #444; z-index: 10; display: none; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
         
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; z-index: 10; }
         .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; display: flex; align-items: center; gap: 5px; }
@@ -38,7 +40,9 @@
         #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
+        
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
+        #endScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; pointer-events: auto;}
         
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
@@ -62,7 +66,6 @@
 <body>
     <div id="menu">
         <h1>ОКОПНАЯ ВОЙНА</h1>
-        
         <div class="profile-setup">
             <img id="avatarPreview" class="avatar-preview" src="https://i.ibb.co/3Wk0X2V/default-avatar.png">
             <input type="file" id="avatarInput" accept="image/*" style="display:none;" onchange="uploadAvatar(event)">
@@ -70,7 +73,6 @@
             <span id="uploadStatus" style="color:yellow; font-size: 12px; display:none;">Загрузка...</span>
             <input type="text" id="playerNameInput" placeholder="Твой Ник" maxlength="15">
         </div>
-
         <div class="teams-container">
             <div class="team-box team-red">
                 <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
@@ -85,13 +87,15 @@
                 <button class="btn" onclick="startGame('blue', 'инженер')">Инженер</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">Enter - Чат | ЛКМ - Огонь | ПКМ - Прицел | Q - Спец | G - Граната | F - ПВО | C - Присесть</p>
+        <p style="color: gray; margin-top: 40px;">Бой идет до 15 очков | Enter - Чат | ЛКМ - Огонь | ПКМ - Прицел</p>
     </div>
 
     <div id="pauseScreen">
         <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
         <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Кликни, чтобы вернуться</p>
     </div>
+
+    <div id="endScreen"></div>
 
     <div id="labelsContainer"></div>
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
@@ -100,10 +104,13 @@
 
     <div id="chatUI">
         <div id="chatMessages"></div>
-        <input type="text" id="chatInput" placeholder="Сообщение... (Нажми Enter чтобы отправить)" autocomplete="off" maxlength="60">
+        <input type="text" id="chatInput" placeholder="Сообщение... (Enter)" autocomplete="off" maxlength="60">
     </div>
 
     <div id="ui" style="display:none;">
+        <div id="scoreBoard">
+            <span style="color: #ff5555">КРАСНЫЕ</span> <span id="scoreRed" style="color:white">0</span> : <span id="scoreBlue" style="color:white">0</span> <span style="color: #5555ff">СИНИЕ</span>
+        </div>
         <div id="crosshair">✛</div><div id="hitmarker">✖</div><div id="hint">Нажми F</div>
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
@@ -148,7 +155,7 @@
             chatInput.value = ''; chatInput.style.display = 'none'; document.body.requestPointerLock();
         }
 
-        db.ref('chat').on('child_added', snap => {
+        db.ref('chat').limitToLast(10).on('child_added', snap => {
             let c = snap.val(); let div = document.createElement('div'); div.className = 'chat-msg';
             let tColor = c.team === 'red' ? '#ff5555' : '#5555ff';
             div.innerHTML = `<img src="${c.avatar}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"> <strong style="color:${tColor}">${c.name}:</strong> <span>${c.text}</span>`;
@@ -189,16 +196,16 @@
         function stopDroneSound() { if (droneGain) droneGain.gain.linearRampToValueAtTime(0, actx.currentTime + 0.2); if (droneOscillator) { droneOscillator.stop(actx.currentTime + 0.3); droneOscillator = null; } }
 
         const myId = Math.random().toString(36).substring(2, 9);
-        let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100; let inGame = false; let isPaused = false; 
+        let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100; let inGame = false; let isPaused = false; let gameEnded = false;
         let controlMode = 'player'; let inPvoId = null; 
         let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000; let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
         let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 }; let shahedHp = 2;
         const speed = 0.08; 
         let isCrouching = false; let headBobTimer = 0; let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0;
-        let savedYaw = 0; let savedPitch = 0; // Сохраняем поворот перед посадкой в дрон/пво
-        
+        let savedYaw = 0; let savedPitch = 0;
         let isZoomed = false; const DEFAULT_FOV = 75; const SNIPER_FOV = 20;
+
         const spawnPoints = { 'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}], 'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}] };
         function getSpawn(team) { return spawnPoints[team][Math.floor(Math.random() * spawnPoints[team].length)]; }
 
@@ -236,6 +243,9 @@
             let maxH = 0; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; } return maxH;
         }
 
+        // ==========================================
+        // ЛИНИЯ ФРОНТА И РАДАР
+        // ==========================================
         let serverPlayers = {}; const labels = {}; 
         function drawMinimap() {
             const canvas = document.getElementById('minimapCanvas'); if(!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
@@ -260,19 +270,14 @@
             }
         }
 
-        const playerMeshes = {};
         db.ref('players').on('value', snap => {
-            const now = Date.now();
-            serverPlayers = snap.val() || {}; 
-            
+            const now = Date.now(); serverPlayers = snap.val() || {}; 
             for (let id in playerMeshes) {
                 let p = serverPlayers[id];
                 if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 10000) { 
-                    scene.remove(playerMeshes[id]); delete playerMeshes[id]; 
-                    if(labels[id]) { labels[id].remove(); delete labels[id]; } 
+                    scene.remove(playerMeshes[id]); delete playerMeshes[id]; if(labels[id]) { labels[id].remove(); delete labels[id]; } 
                 } 
             }
-            
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
                 if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
@@ -294,30 +299,68 @@
             }
         });
 
-        function createPvoModel() {
-            const group = new THREE.Group(); const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 })); base.position.y = 0.75;
-            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 })); turret.position.y = 1.75; turret.name = "turret";
-            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
-            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
-            turret.add(m1); turret.add(m2); group.add(base); group.add(turret); return group;
-        }
-        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}]; const pvoMeshes = {};
-        pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
-        db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
+        // ==========================================
+        // ОЧКИ И УСЛОВИЯ ПОБЕДЫ
+        // ==========================================
+        db.ref('scores').on('value', snap => {
+            let s = snap.val() || { red: 0, blue: 0 };
+            document.getElementById('scoreRed').innerText = s.red || 0;
+            document.getElementById('scoreBlue').innerText = s.blue || 0;
+            
+            if (inGame && !gameEnded && (s.red >= 15 || s.blue >= 15)) {
+                gameEnded = true;
+                let winner = s.red >= 15 ? 'red' : 'blue';
+                endGame(winner);
+            }
+        });
 
+        function endGame(winnerTeam) {
+            inGame = false; document.exitPointerLock();
+            let isVictory = (winnerTeam === myTeam);
+            let screen = document.getElementById('endScreen');
+            screen.style.display = 'flex';
+            screen.innerHTML = isVictory ? '<h1 style="color:lime">ПОБЕДА!</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>' : '<h1 style="color:red">ПОРАЖЕНИЕ</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>';
+            
+            // Завершающая команда очищает очки
+            if (isVictory) {
+                db.ref('scores').set({red: 0, blue: 0});
+            }
+            setTimeout(() => location.reload(), 5000);
+        }
+
+        // ==========================================
+        // БОЕВАЯ СИСТЕМА
+        // ==========================================
         let activeBullets = {}; let activeGrenades = {}; let activeDrones = {}; let activeMines = {}; let particles = []; let lastShootTime = 0;
         function updateHpUi() { let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp; if (myHp > 60) hpElement.style.color = "lime"; else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red"; }
         function showHitmarker() { document.getElementById('hitmarker').style.display = 'block'; playHitSound(); setTimeout(() => document.getElementById('hitmarker').style.display = 'none', 100); }
         function resetZoom() { isZoomed = false; camera.fov = DEFAULT_FOV; camera.updateProjectionMatrix(); document.getElementById('sniperScope').style.display = 'none'; document.getElementById('crosshair').style.display = 'block'; }
         
         function die(killerData) {
-            if (killerData) { db.ref('killfeed').push({ kTeam: killerData.team, kName: killerData.name, kAvatar: killerData.avatar, vTeam: myTeam, vName: myName, vAvatar: myAvatarUrl }); }
+            if (killerData) { 
+                db.ref('killfeed').push({ kTeam: killerData.team, kName: killerData.name, kAvatar: killerData.avatar, vTeam: myTeam, vName: myName, vAvatar: myAvatarUrl, timestamp: Date.now() }); 
+                // УВЕЛИЧИВАЕМ СЧЕТ ВРАГА
+                db.ref('scores/' + killerData.team).transaction(val => (val || 0) + 1);
+            }
+            
             if (controlMode === 'shahed') {
                 stopDroneSound(); document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove();
             }
             if (controlMode === 'pvo') { db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); }
+            
             controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
+
+        // КИЛЛФИД ФИКС: Читаем только свежие, без агрессивного удаления
+        db.ref('killfeed').limitToLast(5).on('child_added', snap => {
+            let k = snap.val(); 
+            if(Date.now() - k.timestamp > 10000) return; // Игнорируем древние записи при загрузке страницы
+            
+            let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
+            div.innerHTML = `<img src="${k.kAvatar}" class="kill-avatar" style="border:1px solid ${kColor}"><span style="color:${kColor}">${k.kName}</span> 💥 <img src="${k.vAvatar}" class="kill-avatar" style="border:1px solid ${vColor}"><span style="color:${vColor}">${k.vName}</span>`; 
+            document.getElementById('killfeed').appendChild(div);
+            setTimeout(() => div.remove(), 5000); 
+        });
 
         function shoot() {
             if (controlMode === 'shahed' || isPaused || document.activeElement === chatInput) return; 
@@ -338,6 +381,17 @@
         });
         db.ref('bullets').on('child_removed', snap => { if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; } });
 
+        function createPvoModel() {
+            const group = new THREE.Group(); const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 })); base.position.y = 0.75;
+            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 })); turret.position.y = 1.75; turret.name = "turret";
+            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
+            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
+            turret.add(m1); turret.add(m2); group.add(base); group.add(turret); return group;
+        }
+        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}]; const pvoMeshes = {};
+        pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
+        db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
+
         function throwGrenade() {
             if (Date.now() - lastGrenadeTime < GRENADE_COOLDOWN) return;
             lastGrenadeTime = Date.now(); let dir = new THREE.Vector3(); camera.getWorldDirection(dir); let gId = 'g_' + myId + '_' + Date.now();
@@ -357,9 +411,8 @@
 
         function launchShahed() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
-            lastDroneTime = Date.now(); // КУЛДАУН НАЧИНАЕТСЯ СРАЗУ ПОСЛЕ ЗАПУСКА
-            resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
-            savedYaw = yaw; savedPitch = pitch; // Сохраняем поворот камеры игрока
+            lastDroneTime = Date.now(); resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
+            savedYaw = yaw; savedPitch = pitch; 
             
             db.ref('drones/' + myId).update({ x: myUnit.x, y: camera.position.y + 1, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, timestamp: Date.now() }); 
             db.ref('drones/' + myId + '/hits').remove();
@@ -370,22 +423,17 @@
         }
 
         function explodeShahed(midAir = false) {
-            controlMode = 'player'; stopDroneSound();
-            yaw = savedYaw; pitch = savedPitch; // Возвращаем взгляд на место после взрыва
-            
+            controlMode = 'player'; stopDroneSound(); yaw = savedYaw; pitch = savedPitch;
             document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
             db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, owner: myId });
             db.ref('drones/' + myId).remove();
         }
 
         db.ref('drones').on('value', snap => {
-            const now = Date.now();
-            let drones = snap.val() || {};
+            const now = Date.now(); let drones = snap.val() || {};
             for (let id in activeDrones) { 
                 let d = drones[id];
-                if (!d || !d.timestamp || now - d.timestamp > 10000) { 
-                    scene.remove(activeDrones[id].mesh); delete activeDrones[id]; 
-                } 
+                if (!d || !d.timestamp || now - d.timestamp > 10000) { scene.remove(activeDrones[id].mesh); delete activeDrones[id]; } 
             }
             for (let id in drones) {
                 let d = drones[id];
@@ -402,22 +450,35 @@
             }
         });
 
+        // ФИКС ВЗРЫВОВ (Только локальный расчет для себя)
         db.ref('explosions').on('child_added', snap => {
             let exp = snap.val(); playExplosionSound();
+            
+            // Если мы не в дроне, вычисляем урон себе (Убрано двойное вычисление через hits)
+            if (controlMode !== 'shahed') {
+                let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
+                
+                if (exp.team !== myTeam) {
+                    if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } 
+                    else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp<=0) die(exp); }
+                } else if (exp.owner === myId) {
+                    // Самоурон
+                    if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } 
+                    else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp<=0) die(exp); }
+                }
+            }
+
+            // Показываем хитмаркер владельцу взрыва
             if (exp.owner === myId) {
                 for (let pId in serverPlayers) {
                     let p = serverPlayers[pId];
                     if (p.team !== myTeam) {
                         let dist = Math.sqrt(Math.pow(p.x - exp.x, 2) + Math.pow((p.y||0) - exp.y, 2) + Math.pow(p.z - exp.z, 2));
-                        if (dist < 6) { db.ref('players/' + pId + '/hits').push({ dmg: 100, killerData: { team: myTeam, cls: myClass, name: exp.name, avatar: exp.avatar } }); showHitmarker(); } 
-                        else if (dist < 12) { db.ref('players/' + pId + '/hits').push({ dmg: 50, killerData: { team: myTeam, cls: myClass, name: exp.name, avatar: exp.avatar } }); showHitmarker(); }
+                        if (dist < 12) { showHitmarker(); break; }
                     }
                 }
             }
-            if (controlMode !== 'shahed') {
-                let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
-                if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp<=0) die(exp); }
-            }
+
             for (let i = 0; i < 15; i++) {
                 let color = Math.random() > 0.5 ? 0x444444 : (Math.random() > 0.5 ? 0x222222 : 0xff5500); 
                 let m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
@@ -428,13 +489,13 @@
         });
 
         // ==========================================
-        // 9. ВВОД И ЗАЩИТА КАМЕРЫ
+        // 9. ВВОД
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
         const keys = {};
         window.addEventListener('keydown', e => { 
             initAudio(); 
-            if (e.code === 'Enter' && inGame && !isPaused) {
+            if (e.code === 'Enter' && inGame && !isPaused && !gameEnded) {
                 if (document.activeElement === chatInput) { sendChatMessage(); } 
                 else { document.exitPointerLock(); chatInput.style.display = 'block'; chatInput.focus(); }
             }
@@ -442,13 +503,13 @@
         });
         window.addEventListener('keyup', e => { keys[e.code] = false; });
         document.addEventListener('pointerlockchange', () => {
-            if (inGame && document.activeElement !== chatInput) {
+            if (inGame && document.activeElement !== chatInput && !gameEnded) {
                 if (document.pointerLockElement === document.body) { isPaused = false; document.getElementById('pauseScreen').style.display = 'none'; } 
                 else { isPaused = true; document.getElementById('pauseScreen').style.display = 'flex'; for(let k in keys) keys[k] = false; isCrouching = false; resetZoom(); }
             }
         });
         window.addEventListener('mousedown', e => { 
-            initAudio(); if (!inGame) return; 
+            initAudio(); if (!inGame || gameEnded) return; 
             if (document.activeElement === chatInput) return;
             if (document.pointerLockElement !== document.body) { let promise = document.body.requestPointerLock(); if (promise) promise.catch(err => {}); } 
             else if (!isPaused) { 
@@ -460,9 +521,7 @@
         });
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body && !isPaused && document.activeElement !== chatInput) {
-                // ПРЕДОХРАНИТЕЛЬ ОТ СРЫВА СЕНСОРА БРАУЗЕРА
                 if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
-                
                 let sens = isZoomed ? 0.0005 : 0.002; yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
@@ -472,7 +531,7 @@
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
-            if (!inGame) return; 
+            if (!inGame || gameEnded) return; 
 
             if (controlMode !== 'shahed') drawMinimap();
             let qStatus = document.getElementById('qStatus');
@@ -618,7 +677,7 @@
             myName = document.getElementById('playerNameInput').value.trim() || myName;
             document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ"; document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
-            document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; 
+            document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('scoreBoard').style.display = 'block';
             buildFpsWeapon(myClass); 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
             db.ref('players/' + myId + '/hits').remove();
