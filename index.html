@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Снайперский прицел</title>
+    <title>Окопная Война: Полный Арсенал</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         
@@ -23,6 +23,9 @@
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         
+        /* ВЕРНУЛИ ПОДСКАЗКУ */
+        #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
+
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
         .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; }
         @keyframes fadeout { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
@@ -81,6 +84,7 @@
     <div id="ui" style="display:none;">
         <div id="crosshair">✛</div>
         <div id="hitmarker">✖</div>
+        <div id="hint">Нажми F</div> <!-- ВЕРНУЛСЯ HINT -->
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
             <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ</div>
@@ -183,7 +187,6 @@
         let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0;
         
-        // ЗУМ СНАЙПЕРА
         let isZoomed = false;
         const DEFAULT_FOV = 75;
         const SNIPER_FOV = 20;
@@ -327,7 +330,7 @@
             }
         });
 
-        // ВЕРНУЛ ФУНКЦИЮ ПВО!
+        // ПВО МОДЕЛЬ (ВОССТАНОВЛЕНА)
         function createPvoModel() {
             const group = new THREE.Group();
             const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
@@ -513,7 +516,7 @@
         });
 
         // ==========================================
-        // 9. ВВОД
+        // 9. ВВОД И ЗАЩИТА (HINT CHECK)
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -602,7 +605,8 @@
             } 
             else if (controlMode === 'pvo') {
                 let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
-                db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); document.getElementById('hint').style.display = 'none';
+                db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); 
+                let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = 'none';
             } 
             else {
                 let floorY = getFloorHeight(myUnit.x, myUnit.z);
@@ -635,7 +639,7 @@
                 for (let id in pvoMeshes) {
                     if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
                 }
-                document.getElementById('hint').style.display = canSit ? 'block' : 'none';
+                let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
             }
 
             let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
