@@ -2,11 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Линия фронта</title>
+    <title>Окопная Война: Глобальный фронт</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         
-        /* ИСПРАВЛЕНИЕ МИНИ-КАРТЫ: Применяем 100vw/vh только к главному 3D канвасу */
         canvas { image-rendering: pixelated; }
         body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
         
@@ -65,7 +64,6 @@
         <p style="font-size: 20px; color: #aaa;">Кликни мышкой в любом месте, чтобы вернуться</p>
     </div>
 
-    <!-- МИНИ КАРТА -->
     <div id="minimap">
         <canvas id="minimapCanvas" width="200" height="200"></canvas>
     </div>
@@ -244,7 +242,7 @@
         }
 
         // ==========================================
-        // 5. МИНИ КАРТА И ЛИНИЯ ФРОНТА
+        // 5. ГЛОБАЛЬНАЯ ЛИНИЯ ФРОНТА
         // ==========================================
         let serverPlayers = {}; 
         
@@ -254,76 +252,107 @@
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, 200, 200);
 
+            // Окопы
             ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; 
             ctx.fillRect(0, 45, 200, 10);
-            
             ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; 
             ctx.fillRect(0, 145, 200, 10);
 
-            let myPx = myUnit.x + 100;
-            let myPy = myUnit.z + 100;
+            // СОБИРАЕМ ВСЕХ ИГРОКОВ (и себя, и серверных) для расчета фронта
+            let allActivePlayers = [];
+            if (controlMode !== 'shahed') {
+                allActivePlayers.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
+            }
+            for (let id in serverPlayers) {
+                let p = serverPlayers[id];
+                if (!p.inPvo) {
+                    allActivePlayers.push({ x: p.x, z: p.z, team: p.team });
+                }
+            }
 
+            // Массив изгибов для каждой точки X на карте
+            let bumpMap = new Array(201).fill(0);
+
+            // Считаем влияние каждого игрока
+            for (let p of allActivePlayers) {
+                let px = p.x + 100;
+                let py = p.z + 100;
+                
+                let pull = 0;
+                // Игрок влияет на фронт, только если вышел за свой окоп
+                if (p.team === 'red' && py < 115) {
+                    pull = (py - 15) - 100; // Тянет линию ВВЕРХ (отрицательное значение)
+                } else if (p.team === 'blue' && py > 85) {
+                    pull = (py + 15) - 100; // Тянет линию ВНИЗ (положительное значение)
+                }
+
+                if (pull !== 0) {
+                    for (let x = 0; x <= 200; x++) {
+                        let dx = Math.abs(x - px);
+                        if (dx < 35) { // Радиус влияния одного игрока = 35 пикселей
+                            let pct = Math.cos((dx / 35) * (Math.PI / 2));
+                            // Складываем все изгибы (bump)
+                            bumpMap[x] += pull * Math.pow(pct, 1.5);
+                        }
+                    }
+                }
+            }
+
+            // РИСУЕМ ГЛОБАЛЬНУЮ ЛИНИЮ
             ctx.strokeStyle = '#ff0000';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
             
             for(let x = 0; x <= 200; x++) {
-                let dx = x - myPx;
-                let bump = 0;
+                let finalY = 100 + bumpMap[x];
                 
-                if (Math.abs(dx) < 35) {
-                    let pct = Math.cos((dx / 35) * (Math.PI / 2));
-                    let targetY = 100;
-                    if (myTeam === 'red' && myPy < 115) {
-                        targetY = myPy - 15;
-                    } 
-                    else if (myTeam === 'blue' && myPy > 85) {
-                        targetY = myPy + 15;
-                    }
-                    let pull = targetY - 100;
-                    bump = pull * Math.pow(pct, 1.5); 
-                }
+                // Ограничиваем фронт, чтобы он не залезал за окопы врага
+                if (finalY < 55) finalY = 55;
+                if (finalY > 145) finalY = 145;
                 
-                if (x === 0) ctx.moveTo(x, 100 + bump);
-                else ctx.lineTo(x, 100 + bump);
+                if (x === 0) ctx.moveTo(x, finalY);
+                else ctx.lineTo(x, finalY);
             }
             ctx.stroke();
 
+            // Отрисовка иконок
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
                 if (p.inPvo) continue; 
                 let px = p.x + 100;
                 let py = p.z + 100;
 
-                if (id === myId) {
-                    ctx.strokeStyle = '#ff0000'; 
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; 
-                    ctx.lineWidth = 1.5;
-                    ctx.beginPath();
-                    let r = 12; 
-                    for (let i = 0; i < 6; i++) {
-                        let angle = (i * Math.PI / 3) - Math.PI / 2;
-                        let hx = px + r * Math.cos(angle);
-                        let hy = py + r * Math.sin(angle);
-                        if (i === 0) ctx.moveTo(hx, hy);
-                        else ctx.lineTo(hx, hy);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-                    
-                    ctx.fillStyle = '#ff0000';
-                    ctx.font = '8px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText("ИГРОК", px, py);
-                    
-                } else {
-                    ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
-                    ctx.fill();
+                ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
+                ctx.beginPath();
+                ctx.arc(px, py, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Я сам (Шестиугольник)
+            if (controlMode !== 'shahed') {
+                let px = myUnit.x + 100;
+                let py = myUnit.z + 100;
+                ctx.strokeStyle = '#ff0000'; 
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; 
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                let r = 12; 
+                for (let i = 0; i < 6; i++) {
+                    let angle = (i * Math.PI / 3) - Math.PI / 2;
+                    let hx = px + r * Math.cos(angle);
+                    let hy = py + r * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(hx, hy);
+                    else ctx.lineTo(hx, hy);
                 }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '8px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText("ИГРОК", px, py);
             }
         }
 
