@@ -2,12 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Фикс Игроков</title>
+    <title>Окопная Война: Финал</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
         body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-        
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
         #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
@@ -15,42 +14,32 @@
         #sniperScope::before, #sniperScope::after { content: ''; position: absolute; background: black; }
         #sniperScope::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
         #sniperScope::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
-        
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
-        
         #scoreBoard { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; border: 2px solid #444; z-index: 10; display: none; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
-        
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; z-index: 10; }
         .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; display: flex; align-items: center; gap: 5px; }
         .kill-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
         @keyframes fadeout { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
-        
         #chatUI { position: absolute; bottom: 100px; left: 20px; width: 400px; height: 250px; display: flex; flex-direction: column; justify-content: flex-end; z-index: 15; pointer-events: none; }
         #chatMessages { overflow-y: hidden; display: flex; flex-direction: column; gap: 2px; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; font-size: 14px; }
         .chat-msg { background: rgba(0,0,0,0.4); padding: 2px 5px; border-radius: 3px; display: flex; align-items: center; gap: 5px; }
         #chatInput { display: none; pointer-events: auto; background: rgba(0,0,0,0.8); border: 1px solid #555; color: white; padding: 8px; font-family: monospace; font-size: 14px; width: 100%; outline: none; }
-        
         #labelsContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
         .player-label { position: absolute; display: flex; flex-direction: column; align-items: center; text-shadow: 1px 1px 0 #000; font-size: 12px; font-weight: bold; transform-origin: center bottom; }
         .player-label img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid; object-fit: cover; margin-bottom: 2px; }
-
         #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; overflow: hidden; }
         #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
-        
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         #endScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; pointer-events: auto;}
-        
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
-        
         .profile-setup { background: rgba(0,0,0,0.5); border: 2px solid #555; padding: 20px; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .profile-setup input[type="text"] { background: #222; border: 1px solid #666; color: white; padding: 10px; font-family: monospace; font-size: 16px; width: 250px; text-align: center; }
         .avatar-preview { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #888; object-fit: cover; background: #333; }
-        
         .teams-container { display: flex; gap: 50px; }
         .team-box { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px solid #333; background: #1a1a1a;}
         .team-red { border-color: #aa3333; }
@@ -94,9 +83,7 @@
         <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
         <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Кликни, чтобы вернуться</p>
     </div>
-
     <div id="endScreen"></div>
-
     <div id="labelsContainer"></div>
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
     <div id="killfeed"></div>
@@ -132,7 +119,6 @@
         };
         firebase.initializeApp(firebaseConfig); const db = firebase.database();
 
-        // ФИКС ВРЕМЕНИ: Синхронизируем локальное время с сервером Firebase
         let serverTimeOffset = 0;
         db.ref('.info/serverTimeOffset').on('value', snap => { serverTimeOffset = snap.val() || 0; });
         function getNow() { return Date.now() + serverTimeOffset; }
@@ -150,7 +136,7 @@
                 const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method: 'POST', body: formData });
                 const data = await res.json();
                 if(data.success) { myAvatarUrl = data.data.url; document.getElementById('avatarPreview').src = myAvatarUrl; }
-            } catch(e) { console.error("Ошибка", e); }
+            } catch(e) { console.error("Ошибка загрузки", e); }
             document.getElementById('uploadStatus').style.display = 'none';
         }
 
@@ -160,17 +146,17 @@
             chatInput.value = ''; chatInput.style.display = 'none'; document.body.requestPointerLock();
         }
 
-        // ФИКС ЧАТА: Грузим только свежие
         let initialChat = true;
         db.ref('chat').limitToLast(10).on('child_added', snap => {
-            if (initialChat) return; // Игнорируем старые при загрузке
-            let c = snap.val(); let div = document.createElement('div'); div.className = 'chat-msg'; let tColor = c.team === 'red' ? '#ff5555' : '#5555ff';
+            let c = snap.val();
+            if (initialChat || getNow() - c.timestamp > 10000) return;
+            let div = document.createElement('div'); div.className = 'chat-msg'; let tColor = c.team === 'red' ? '#ff5555' : '#5555ff';
             div.innerHTML = `<img src="${c.avatar}" style="width:16px;height:16px;border-radius:50%;object-fit:cover;"> <strong style="color:${tColor}">${c.name}:</strong> <span>${c.text}</span>`;
             document.getElementById('chatMessages').appendChild(div);
             if(document.getElementById('chatMessages').children.length > 10) document.getElementById('chatMessages').firstChild.remove();
             setTimeout(() => { if(div.parentNode) div.parentNode.removeChild(div); }, 10000);
         });
-        db.ref('chat').limitToLast(10).once('value', () => { initialChat = false; }); // Отключаем блок после первой прогрузки
+        db.ref('chat').limitToLast(10).once('value', () => { initialChat = false; });
 
         const AudioContext = window.AudioContext || window.webkitAudioContext; let actx = null; let droneOscillator = null; let droneGain = null;
         function initAudio() { if (!actx) actx = new AudioContext(); if (actx.state === 'suspended') actx.resume(); }
@@ -247,6 +233,8 @@
         }
 
         let serverPlayers = {}; const labels = {}; 
+        const playerMeshes = {}; // НЭМСЭН
+
         function drawMinimap() {
             const canvas = document.getElementById('minimapCanvas'); if(!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
             ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; ctx.fillRect(0, 45, 200, 10); ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; ctx.fillRect(0, 145, 200, 10);
@@ -275,14 +263,14 @@
             
             for (let id in playerMeshes) {
                 let p = serverPlayers[id];
-                if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 30000) { 
+                if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 10000) { 
                     scene.remove(playerMeshes[id]); delete playerMeshes[id]; if(labels[id]) { labels[id].remove(); delete labels[id]; } 
                 } 
             }
             
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
-                if (!p.timestamp || now - p.timestamp > 30000) { db.ref('players/' + id).remove(); continue; }
+                if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
                 if (id === myId || p.inPvo) continue; 
                 
                 if (!playerMeshes[id]) {
@@ -312,7 +300,6 @@
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
         db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
 
-        // ОЧКИ И УСЛОВИЯ ПОБЕДЫ
         db.ref('scores').on('value', snap => {
             let s = snap.val() || { red: 0, blue: 0 };
             document.getElementById('scoreRed').innerText = s.red || 0;
@@ -345,11 +332,12 @@
             controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
-        // ФИКС КИЛЛФИДА (Только новые)
         let initialKills = true;
         db.ref('killfeed').limitToLast(5).on('child_added', snap => {
-            if (initialKills) return;
-            let k = snap.val(); let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
+            let k = snap.val(); 
+            if(initialKills || getNow() - k.timestamp > 10000) return; 
+            
+            let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
             div.innerHTML = `<img src="${k.kAvatar}" class="kill-avatar" style="border:1px solid ${kColor}"><span style="color:${kColor}">${k.kName}</span> 💥 <img src="${k.vAvatar}" class="kill-avatar" style="border:1px solid ${vColor}"><span style="color:${vColor}">${k.vName}</span>`; 
             document.getElementById('killfeed').appendChild(div); setTimeout(() => div.remove(), 5000); 
         });
@@ -411,11 +399,11 @@
         db.ref('drones').on('value', snap => {
             const now = getNow(); let drones = snap.val() || {};
             for (let id in activeDrones) { 
-                let d = drones[id]; if (!d || !d.timestamp || now - d.timestamp > 30000) { scene.remove(activeDrones[id].mesh); delete activeDrones[id]; } 
+                let d = drones[id]; if (!d || !d.timestamp || now - d.timestamp > 10000) { scene.remove(activeDrones[id].mesh); delete activeDrones[id]; } 
             }
             for (let id in drones) {
                 let d = drones[id];
-                if (!d.timestamp || now - d.timestamp > 30000) { db.ref('drones/' + id).remove(); continue; }
+                if (!d.timestamp || now - d.timestamp > 10000) { db.ref('drones/' + id).remove(); continue; }
                 if (id === myId) continue; 
                 
                 if (!activeDrones[id]) {
@@ -459,12 +447,13 @@
         });
 
         // ==========================================
-        // ВВОД И ХАРТБИТ
+        // 9. ВВОД
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
         const keys = {};
         window.addEventListener('keydown', e => { 
             initAudio(); 
+            if (e.code === 'Escape' && document.activeElement === chatInput) { chatInput.value = ''; chatInput.style.display = 'none'; document.body.requestPointerLock(); return; }
             if (e.code === 'Enter' && inGame && !isPaused && !gameEnded) {
                 if (document.activeElement === chatInput) { sendChatMessage(); } 
                 else { document.exitPointerLock(); chatInput.style.display = 'block'; chatInput.focus(); }
@@ -496,7 +485,6 @@
             }
         });
 
-        // ХАРТБИТ (чтобы не пропасть при свернутой вкладке)
         setInterval(() => {
             if (inGame) {
                 if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow() });
