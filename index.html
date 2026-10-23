@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Анти-Призрак</title>
+    <title>Окопная Война: Фикс Камеры и Кулдауна</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -193,9 +193,11 @@
         let controlMode = 'player'; let inPvoId = null; 
         let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000; let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
         let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 }; let shahedHp = 2;
-        const speed = 0.08; // <-- СКОРОСТЬ ИГРОКА УМЕНЬШЕНА (было 0.15)
+        const speed = 0.08; 
         let isCrouching = false; let headBobTimer = 0; let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0;
+        let savedYaw = 0; let savedPitch = 0; // Сохраняем поворот перед посадкой в дрон/пво
+        
         let isZoomed = false; const DEFAULT_FOV = 75; const SNIPER_FOV = 20;
         const spawnPoints = { 'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}], 'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}] };
         function getSpawn(team) { return spawnPoints[team][Math.floor(Math.random() * spawnPoints[team].length)]; }
@@ -265,7 +267,6 @@
             
             for (let id in playerMeshes) {
                 let p = serverPlayers[id];
-                // УДАЛЕНИЕ СТАРЫХ ПРИЗРАКОВ: Если метка времени старее 10 секунд — стираем модельку!
                 if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 10000) { 
                     scene.remove(playerMeshes[id]); delete playerMeshes[id]; 
                     if(labels[id]) { labels[id].remove(); delete labels[id]; } 
@@ -274,12 +275,7 @@
             
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
-                
-                // АВТО-КЛИНАП БАЗЫ ОТ ПРИЗРАКОВ
-                if (!p.timestamp || now - p.timestamp > 10000) {
-                    db.ref('players/' + id).remove();
-                    continue;
-                }
+                if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
                 if (id === myId || p.inPvo) continue; 
                 
                 if (!playerMeshes[id]) {
@@ -320,7 +316,7 @@
                 stopDroneSound(); document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove();
             }
             if (controlMode === 'pvo') { db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); }
-            controlMode = 'player'; myHp = 100; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
+            controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
         function shoot() {
@@ -361,9 +357,11 @@
 
         function launchShahed() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
+            lastDroneTime = Date.now(); // КУЛДАУН НАЧИНАЕТСЯ СРАЗУ ПОСЛЕ ЗАПУСКА
             resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
+            savedYaw = yaw; savedPitch = pitch; // Сохраняем поворот камеры игрока
             
-            db.ref('drones/' + myId).set({ x: myUnit.x, y: camera.position.y + 1, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, timestamp: Date.now() }); 
+            db.ref('drones/' + myId).update({ x: myUnit.x, y: camera.position.y + 1, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, timestamp: Date.now() }); 
             db.ref('drones/' + myId + '/hits').remove();
             
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
@@ -372,7 +370,9 @@
         }
 
         function explodeShahed(midAir = false) {
-            controlMode = 'player'; lastDroneTime = Date.now(); stopDroneSound();
+            controlMode = 'player'; stopDroneSound();
+            yaw = savedYaw; pitch = savedPitch; // Возвращаем взгляд на место после взрыва
+            
             document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
             db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, owner: myId });
             db.ref('drones/' + myId).remove();
@@ -428,7 +428,7 @@
         });
 
         // ==========================================
-        // 9. ВВОД
+        // 9. ВВОД И ЗАЩИТА КАМЕРЫ
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
         const keys = {};
@@ -460,6 +460,9 @@
         });
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body && !isPaused && document.activeElement !== chatInput) {
+                // ПРЕДОХРАНИТЕЛЬ ОТ СРЫВА СЕНСОРА БРАУЗЕРА
+                if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
+                
                 let sens = isZoomed ? 0.0005 : 0.002; yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
@@ -555,9 +558,11 @@
                     if (controlMode === 'pvo') {
                         db.ref('pvos/' + inPvoId).update({owner: null}); myUnit.x = pvoMeshes[inPvoId].position.x - 3; myUnit.z = pvoMeshes[inPvoId].position.z; myUnit.y = 0;
                         controlMode = 'player'; inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); keys['KeyF'] = false; 
+                        yaw = savedYaw; pitch = savedPitch;
                     } else {
                         for (let id in pvoMeshes) {
                             if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) {
+                                savedYaw = yaw; savedPitch = pitch;
                                 controlMode = 'pvo'; inPvoId = id; db.ref('pvos/' + id).update({owner: myId});
                                 document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true}); keys['KeyF'] = false; break;
                             }
@@ -616,8 +621,8 @@
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; 
             buildFpsWeapon(myClass); 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
-            
             db.ref('players/' + myId + '/hits').remove();
+            
             db.ref('players/' + myId).set({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false, name: myName, avatar: myAvatarUrl, timestamp: Date.now() });
             db.ref('players/' + myId).onDisconnect().remove();
 
