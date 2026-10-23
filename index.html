@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Полный Арсенал</title>
+    <title>Окопная Война: Фикс Урона</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         
@@ -14,7 +14,6 @@
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
         #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
         
-        /* СНАЙПЕРСКИЙ ПРИЦЕЛ */
         #sniperScope { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 20%, black 70%); display: none; z-index: 11; pointer-events: none; }
         #sniperScope::before, #sniperScope::after { content: ''; position: absolute; background: black; }
         #sniperScope::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
@@ -23,7 +22,6 @@
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         
-        /* ВЕРНУЛИ ПОДСКАЗКУ */
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
 
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
@@ -35,7 +33,7 @@
         
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
-        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
+        #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
@@ -73,8 +71,8 @@
     </div>
 
     <div id="pauseScreen">
-        <h1 style="color: white;">ИГРА НА ПАУЗЕ</h1>
-        <p style="font-size: 20px; color: #aaa;">Кликни левой кнопкой мыши, чтобы вернуться</p>
+        <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
+        <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Бой продолжается! Кликни, чтобы вернуться</p>
     </div>
 
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
@@ -84,7 +82,7 @@
     <div id="ui" style="display:none;">
         <div id="crosshair">✛</div>
         <div id="hitmarker">✖</div>
-        <div id="hint">Нажми F</div> <!-- ВЕРНУЛСЯ HINT -->
+        <div id="hint">Нажми F</div>
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
             <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ</div>
@@ -398,7 +396,7 @@
         });
 
         function shoot() {
-            if (controlMode === 'shahed' || isPaused) return; 
+            if (controlMode === 'shahed') return; 
             let now = Date.now();
             let fireDelay = 120; let dmg = 20;
             if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; }
@@ -409,7 +407,7 @@
             recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
             
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            let bSpeed = (myClass === 'снайпер') ? 4.0 : 2.0; 
+            let bSpeed = (myClass === 'снайпер') ? 2.5 : 1.5; if (controlMode === 'pvo') bSpeed = 3.0; // ПОНИЗИЛИ СКОРОСТЬ ПУЛЬ ЧТОБЫ НЕ ПРОШИВАЛИ ХИТБОКС
             
             let bId = 'b_' + myId + '_' + now;
             db.ref('bullets/' + bId).set({
@@ -417,7 +415,7 @@
                 x: camera.position.x, y: camera.position.y, z: camera.position.z,
                 vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed
             });
-            setTimeout(() => db.ref('bullets/' + bId).remove(), 1000);
+            setTimeout(() => db.ref('bullets/' + bId).remove(), 1500);
         }
 
         db.ref('bullets').on('child_added', snap => {
@@ -516,19 +514,17 @@
         });
 
         // ==========================================
-        // 9. ВВОД И ЗАЩИТА (HINT CHECK)
+        // 9. ВВОД
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
 
         const keys = {};
         window.addEventListener('keydown', e => { 
             initAudio(); keys[e.code] = true; 
-            if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = true;
-            if (e.code === 'Space' && inGame && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
-            if (e.code === 'KeyQ' && inGame && !isPaused) { if(myClass === 'инженер') placeMine(); else launchShahed(); }
-            if (e.code === 'KeyG' && inGame && !isPaused) throwGrenade();
         });
-        window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = false; });
+        window.addEventListener('keyup', e => { 
+            keys[e.code] = false; 
+        });
         
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
@@ -542,7 +538,7 @@
             if (!inGame) return; 
             if (document.pointerLockElement !== document.body) {
                 document.body.requestPointerLock(); 
-            } else { 
+            } else if (!isPaused) { 
                 if (e.button === 2 && myClass === 'снайпер' && controlMode === 'player') {
                     isZoomed = !isZoomed;
                     camera.fov = isZoomed ? SNIPER_FOV : DEFAULT_FOV; camera.updateProjectionMatrix();
@@ -562,11 +558,13 @@
         });
 
         // ==========================================
-        // 10. ИГРОВОЙ ЦИКЛ
+        // 10. ИГРОВОЙ ЦИКЛ (ОТДЕЛЕНА ПАУЗА ОТ СЕТИ)
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
-            if (!inGame || isPaused) return;
+            if (!inGame) return; 
+
+            // ================= РЕНДЕР СЕТИ И ЭФФЕКТОВ (РАБОТАЕТ ДАЖЕ В ПАУЗЕ) =================
             if (controlMode !== 'shahed') drawMinimap();
 
             let qStatus = document.getElementById('qStatus');
@@ -578,16 +576,7 @@
 
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
-            if (controlMode === 'player') {
-                for(let id in activeMines) {
-                    let m = activeMines[id];
-                    if(m.data.team !== myTeam && Math.sqrt(Math.pow(myUnit.x - m.data.x, 2) + Math.pow(myUnit.z - m.data.z, 2)) < 2.0) {
-                        db.ref('explosions').push({ x: m.data.x, y: m.data.y, z: m.data.z, team: m.data.team, cls: m.data.cls });
-                        db.ref('mines/' + id).remove();
-                    }
-                }
-            }
-
+            // Движение гранат
             for (let id in activeGrenades) {
                 let g = activeGrenades[id]; g.vy -= 0.02; g.mesh.position.x += g.vx; g.mesh.position.y += g.vy; g.mesh.position.z += g.vz; g.mesh.rotation.x += 0.1; g.mesh.rotation.z += 0.1;
                 let floorY = getFloorHeight(g.mesh.position.x, g.mesh.position.z);
@@ -596,90 +585,146 @@
                 if (checkCollision(g.mesh.position.x, g.mesh.position.z + g.vz, g.mesh.position.y)) { g.vz = -g.vz * 0.5; }
             }
 
-            if (controlMode === 'shahed') {
-                let sSpeed = 0.3; let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
-                shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
-                camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
-                if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
-                else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
-            } 
-            else if (controlMode === 'pvo') {
-                let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
-                db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); 
-                let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = 'none';
-            } 
-            else {
-                let floorY = getFloorHeight(myUnit.x, myUnit.z);
-                if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; }
-                myUnit.y += velocityY;
-                if (myUnit.y <= floorY) { myUnit.y = floorY; velocityY = 0; isGrounded = true; }
-
-                let currentSpeed = isCrouching ? speed * 0.4 : speed; 
-                let dx = 0, dz = 0;
-                let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-                let right = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-
-                if (keys['KeyW']) { dx += forward.x * currentSpeed; dz += forward.z * currentSpeed; }
-                if (keys['KeyS']) { dx -= forward.x * currentSpeed; dz -= forward.z * currentSpeed; }
-                if (keys['KeyA']) { dx -= right.x * currentSpeed; dz -= right.z * currentSpeed; }
-                if (keys['KeyD']) { dx += right.x * currentSpeed; dz += right.z * currentSpeed; }
-
-                if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx;
-                if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
-
-                let targetCamOffset = isCrouching ? 0.8 : 1.6; let swayX = 0; let swayY = 0;
-                if ((dx !== 0 || dz !== 0) && isGrounded && !isZoomed) { headBobTimer += (isCrouching ? 0.1 : 0.2); swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; } 
-                camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
-                recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
-                fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
-
-                db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
-
-                let canSit = false;
-                for (let id in pvoMeshes) {
-                    if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
-                }
-                let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
-            }
-
-            let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
-
+            // Движение пуль и проверка попаданий (УВЕЛИЧЕН ХИТБОКС)
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
                 b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
                 
                 if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
-                    if (b.data.owner === myId) db.ref('bullets/' + id).remove();
+                    if (b.data.owner === myId && !isPaused) db.ref('bullets/' + id).remove();
                     scene.remove(b.mesh); delete activeBullets[id]; continue;
                 }
 
+                // Враг попадает в меня (УВЕЛИЧЕН ХИТБОКС ДО 1.5)
                 if (b.data.team !== myTeam && controlMode !== 'shahed') {
                     let dX = b.mesh.position.x - myUnit.x; let dZ = b.mesh.position.z - myUnit.z;
-                    if (Math.sqrt(dX*dX + dZ*dZ) < 0.8 && b.mesh.position.y > myUnit.y && b.mesh.position.y < camera.position.y + 0.3) { 
+                    let dist2D = Math.sqrt(dX*dX + dZ*dZ);
+                    
+                    let hit = false;
+                    if (controlMode === 'pvo') {
+                        if (dist2D < 3.0 && Math.abs(b.mesh.position.y - camera.position.y) < 2.5) hit = true;
+                    } else {
+                        // Хитбокс шириной 3 метра (радиус 1.5)
+                        if (dist2D < 1.5 && b.mesh.position.y > myUnit.y - 0.5 && b.mesh.position.y < camera.position.y + 0.5) hit = true;
+                    }
+
+                    if (hit) { 
                         myHp -= b.data.dmg; document.getElementById('hpDisplay').innerText = myHp;
                         let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6'; setTimeout(() => overlay.style.opacity = '0', 150);
-                        if (myHp <= 0) die(b.data); db.ref('bullets/' + id).remove(); 
+                        if (myHp <= 0) die(b.data); 
+                        if (!isPaused) db.ref('bullets/' + id).remove(); 
                     }
                 }
 
+                // Я попадаю во врага (показываем хитмаркер)
                 if (b.data.owner === myId) {
                     for (let pId in serverPlayers) {
                         let p = serverPlayers[pId];
                         if (p.team !== myTeam) {
                             let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z;
                             let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
-                            if (Math.sqrt(dX*dX + dZ*dZ) < 0.8 && b.mesh.position.y > pY && b.mesh.position.y < pY + pHeight) {
-                                showHitmarker(); db.ref('bullets/' + id).remove(); break;
+                            // Тот же увеличенный хитбокс
+                            if (Math.sqrt(dX*dX + dZ*dZ) < 1.5 && b.mesh.position.y > pY - 0.5 && b.mesh.position.y < pY + pHeight + 0.5) {
+                                showHitmarker(); if (!isPaused) db.ref('bullets/' + id).remove(); break;
                             }
                         }
                     }
                 }
             }
 
+            // Анимация дыма
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i]; p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.mesh.position.z += p.vz;
                 p.mesh.scale.set(1 + (1-p.life)*2, 1 + (1-p.life)*2, 1 + (1-p.life)*2); p.mesh.material.opacity = p.life; p.life -= 0.02;
                 if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
+            }
+
+            // ================= ЛОКАЛЬНОЕ ДВИЖЕНИЕ И УПРАВЛЕНИЕ (ТОЛЬКО ЕСЛИ НЕТ ПАУЗЫ) =================
+            if (!isPaused) {
+                // Присед
+                isCrouching = keys['KeyC'] || keys['ShiftLeft'];
+                // Прыжок
+                if (keys['Space'] && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
+                // Способности
+                if (keys['KeyQ']) { if(myClass === 'инженер') placeMine(); else launchShahed(); }
+                if (keys['KeyG']) throwGrenade();
+                // Посадка в ПВО
+                if (keys['KeyF'] && controlMode !== 'shahed') {
+                    if (controlMode === 'pvo') {
+                        db.ref('pvos/' + inPvoId).update({owner: null});
+                        myUnit.x = pvoMeshes[inPvoId].position.x - 3; myUnit.z = pvoMeshes[inPvoId].position.z; myUnit.y = 0;
+                        controlMode = 'player'; inPvoId = null;
+                        document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
+                        keys['KeyF'] = false; // Сброс
+                    } else {
+                        for (let id in pvoMeshes) {
+                            if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) {
+                                controlMode = 'pvo'; inPvoId = id; db.ref('pvos/' + id).update({owner: myId});
+                                document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true});
+                                keys['KeyF'] = false; // Сброс
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (controlMode === 'player') {
+                    for(let id in activeMines) {
+                        let m = activeMines[id];
+                        if(m.data.team !== myTeam && Math.sqrt(Math.pow(myUnit.x - m.data.x, 2) + Math.pow(myUnit.z - m.data.z, 2)) < 2.0) {
+                            db.ref('explosions').push({ x: m.data.x, y: m.data.y, z: m.data.z, team: m.data.team, cls: m.data.cls });
+                            db.ref('mines/' + id).remove();
+                        }
+                    }
+                }
+
+                if (controlMode === 'shahed') {
+                    let sSpeed = 0.3; let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                    shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
+                    camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
+                    if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
+                    else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
+                } 
+                else if (controlMode === 'pvo') {
+                    let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
+                    db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); 
+                    let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = 'none';
+                } 
+                else {
+                    let floorY = getFloorHeight(myUnit.x, myUnit.z);
+                    if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; }
+                    myUnit.y += velocityY;
+                    if (myUnit.y <= floorY) { myUnit.y = floorY; velocityY = 0; isGrounded = true; }
+
+                    let currentSpeed = isCrouching ? speed * 0.4 : speed; 
+                    let dx = 0, dz = 0;
+                    let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+                    let right = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+
+                    if (keys['KeyW']) { dx += forward.x * currentSpeed; dz += forward.z * currentSpeed; }
+                    if (keys['KeyS']) { dx -= forward.x * currentSpeed; dz -= forward.z * currentSpeed; }
+                    if (keys['KeyA']) { dx -= right.x * currentSpeed; dz -= right.z * currentSpeed; }
+                    if (keys['KeyD']) { dx += right.x * currentSpeed; dz += right.z * currentSpeed; }
+
+                    if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx;
+                    if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
+
+                    let targetCamOffset = isCrouching ? 0.8 : 1.6; let swayX = 0; let swayY = 0;
+                    if ((dx !== 0 || dz !== 0) && isGrounded && !isZoomed) { headBobTimer += (isCrouching ? 0.1 : 0.2); swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; } 
+                    camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
+                    recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
+                    fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
+
+                    db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
+
+                    let canSit = false;
+                    for (let id in pvoMeshes) {
+                        if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
+                    }
+                    let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
+                }
+
+                let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
             }
 
             renderer.render(scene, camera);
