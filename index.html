@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Симулятор Войны: Оружие в руках</title>
+    <title>Окопная Война</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; width: 100vw; height: 100vh; }
@@ -37,20 +37,20 @@
 </head>
 <body>
     <div id="menu">
-        <h1>ВЫБОР СТОРОНЫ</h1>
+        <h1>ОКОПНАЯ ВОЙНА</h1>
         <div class="teams-container">
             <div class="team-box team-red">
-                <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
-                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик (Автомат)</button>
-                <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер (Винтовка)</button>
+                <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ (ЮГ)</h2>
+                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик</button>
+                <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер</button>
             </div>
             <div class="team-box team-blue">
-                <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ</h2>
-                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик (Автомат)</button>
-                <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер (Винтовка)</button>
+                <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ (СЕВЕР)</h2>
+                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик</button>
+                <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">WASD - Ходьба | ЛКМ - Огонь | Q - Запуск FPV Шахеда | F - ПВО</p>
+        <p style="color: gray; margin-top: 40px;">WASD - Бег | C или Shift - Присесть в окопе | ЛКМ - Огонь | Q - Шахед | F - ПВО</p>
     </div>
 
     <div id="pauseScreen">
@@ -95,11 +95,8 @@
         // 2. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ==========================================
         const myId = Math.random().toString(36).substring(2, 9);
-        let myTeam = 'red';
-        let myClass = 'штурмовик';
-        let myHp = 100;
-        let inGame = false;
-        let isPaused = false; 
+        let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100;
+        let inGame = false; let isPaused = false; 
         
         let controlMode = 'player'; 
         let inPvoId = null; 
@@ -107,23 +104,19 @@
         let lastDroneTime = -20000;
         const DRONE_COOLDOWN = 20000;
 
-        let myUnit = { x: 0, z: 0 };
-        let shahedUnit = { x: 0, y: 0, z: 0 };
+        let myUnit = { x: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 };
         
         const speed = 0.12;
-        const playerHeight = 1.6;
+        let playerHeight = 1.6; // Будет меняться при приседании
+        let isCrouching = false;
         let headBobTimer = 0;
 
-        let yaw = 0;
-        let pitch = 0;
-
-        // Переменные для отдачи оружия
-        let recoilOffset = 0;
-        let recoilTarget = 0;
+        let yaw = 0; let pitch = 0;
+        let recoilOffset = 0; let recoilTarget = 0;
 
         const spawnPoints = {
-            'red': [{x: -20, z: 80}, {x: 0, z: 80}, {x: 20, z: 80}, {x: -10, z: 85}, {x: 10, z: 85}],
-            'blue': [{x: -20, z: -80}, {x: 0, z: -80}, {x: 20, z: -80}, {x: -10, z: -85}, {x: 10, z: -85}]
+            'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}],
+            'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}]
         };
 
         function getSpawn(team) {
@@ -135,118 +128,127 @@
         // 3. 3D СЦЕНА
         // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x2a2a2a);
-        scene.fog = new THREE.FogExp2(0x2a2a2a, 0.015);
+        scene.background = new THREE.Color(0x758c9e); // Чуть более светлое небо
+        scene.fog = new THREE.FogExp2(0x758c9e, 0.012);
+        
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
-        scene.add(camera); // ВАЖНО: Добавляем камеру на сцену, чтобы прикрепленное к ней оружие было видно
+        scene.add(camera);
 
         const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setPixelRatio(0.3);
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0x444444));
-        const dirLight = new THREE.DirectionalLight(0x777766, 0.8);
-        dirLight.position.set(20, 50, 20);
+        scene.add(new THREE.AmbientLight(0x555555));
+        const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+        dirLight.position.set(20, 50, -20);
         scene.add(dirLight);
 
-        // ==========================================
-        // ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА (FPS WEAPON)
-        // ==========================================
+        // Оружие
         const fpsWeaponGroup = new THREE.Group();
-        camera.add(fpsWeaponGroup); // Привязываем оружие жестко к камере
+        camera.add(fpsWeaponGroup);
 
         function buildFpsWeapon(cls) {
-            // Очищаем старое оружие (если сменили класс)
-            while(fpsWeaponGroup.children.length > 0) { 
-                fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); 
-            }
-            
+            while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
             const matDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a, roughness: 0.8});
-            const matWood = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9}); // Цвет дерева
+            const matWood = new THREE.MeshStandardMaterial({color: 0x5c4033, roughness: 0.9});
 
             if (cls === 'снайпер') {
-                // Снайперская винтовка (длинная, с оптикой и деревянным прикладом)
-                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), matDark);
-                barrel.position.set(0, 0, -0.4);
-                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), matWood);
-                stock.position.set(0, -0.04, 0.3);
-                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), matDark);
-                scope.position.set(0, 0.05, 0.1);
+                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), matDark); barrel.position.set(0, 0, -0.4);
+                const stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), matWood); stock.position.set(0, -0.04, 0.3);
+                const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), matDark); scope.position.set(0, 0.05, 0.1);
                 fpsWeaponGroup.add(barrel, stock, scope);
             } else {
-                // Штурмовой автомат (короткий, черный, с магазином)
-                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), matDark);
-                barrel.position.set(0, 0, -0.2);
-                const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), matDark);
-                body.position.set(0, -0.03, 0.1);
-                const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), matDark);
-                mag.position.set(0, -0.15, 0.1);
+                const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), matDark); barrel.position.set(0, 0, -0.2);
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), matDark); body.position.set(0, -0.03, 0.1);
+                const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), matDark); mag.position.set(0, -0.15, 0.1);
                 fpsWeaponGroup.add(barrel, body, mag);
             }
-            // Позиция оружия относительно глаз игрока (Справа, внизу, выдвинуто вперед)
             fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
         }
 
         // ==========================================
-        // 4. ГЕНЕРАЦИЯ КАРТЫ
+        // 4. ГЕНЕРАЦИЯ КАРТЫ ПО ТВОЕМУ РИСУНКУ
         // ==========================================
         const mapData = []; 
         const wallsGroup = new THREE.Group();
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x3d352b, roughness: 1 }));
+        
+        // Земля
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35, roughness: 1 }));
         floor.rotation.x = -Math.PI / 2;
         scene.add(floor);
-        const buildingMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.9 });
         
-        function pseudoRandom(x, z) {
-            let n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return n - Math.floor(n);
+        const dirtMat = new THREE.MeshStandardMaterial({ color: 0x6e5a40, roughness: 1 }); // Цвет земли для окопа
+        const bushMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.9 }); // Зеленый куст
+        
+        function createWall(x, z, w, h, d) {
+            let mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), dirtMat);
+            mesh.position.set(x, h/2, z);
+            wallsGroup.add(mesh);
+            mapData.push({ x: x, z: z, w: w, d: d, h: h });
         }
 
-        for(let i = -30; i <= 30; i+=3) {
-            for(let j = -30; j <= 30; j+=3) {
-                if (j * 3 < -70 || j * 3 > 70) continue; 
-                let rand = pseudoRandom(i, j);
-                if (rand > 0.6) {
-                    let w = 2 + pseudoRandom(i+1, j) * 4; let h = 1 + pseudoRandom(i, j+1) * 6; let d = 2 + pseudoRandom(i+2, j) * 4;
-                    let mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat);
-                    mesh.position.set(i * 3, h/2, j * 3); wallsGroup.add(mesh);
-                    mapData.push({ x: i*3, z: j*3, w: w, d: d, h: h });
-                }
-            }
+        function createBush(x, z, r) {
+            let mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), bushMat);
+            mesh.position.set(x, r, z);
+            wallsGroup.add(mesh);
+            mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 }); // Приблизительная коллизия куста
         }
+
+        // ОКОП СИНИХ (СЕВЕР)
+        createWall(0, -45, 200, 1.0, 2); // Передний бруствер (низкий, можно стрелять стоя)
+        createWall(-55, -53, 90, 1.6, 2); // Задняя стенка лево (высокая)
+        createWall(55, -53, 90, 1.6, 2);  // Задняя стенка право
+        // Между -10 и 10 проход на базу
+
+        // ОКОП КРАСНЫХ (ЮГ)
+        createWall(0, 45, 200, 1.0, 2); // Передний бруствер
+        createWall(-55, 53, 90, 1.6, 2); // Задняя стенка лево
+        createWall(55, 53, 90, 1.6, 2);  // Задняя стенка право
+
+        // КУСТЫ ПО РИСУНКУ
+        createBush(-40, 0, 8);   // Большой куст слева
+        createBush(25, -20, 5);  // Средний куст сверху справа
+        createBush(55, 10, 6);   // Средний куст снизу справа
+        
+        // Пару мелких кустиков для укрытия в поле
+        createBush(-5, 15, 3);   
+        createBush(5, -10, 4);   
+
         scene.add(wallsGroup);
 
-        function checkCollision(nx, nz, isDrone = false, ny = 0) {
-            if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true;
+        function checkCollision(nx, nz, ny = 0) { // ny = высота объекта
+            if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; // Границы карты
             for(let b of mapData) {
-                if (Math.abs(nx - b.x) < (b.w/2 + 0.5) && Math.abs(nz - b.z) < (b.d/2 + 0.5)) {
-                    if (isDrone) { if (ny < b.h) return true; } else { return true; }
+                // Добавляем 0.4 к ширине для радиуса игрока
+                if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4)) {
+                    if (ny < b.h) return true; // Врезаемся, если мы ниже стены
                 }
             }
             return false;
         }
 
         // ==========================================
-        // 5. МОДЕЛИ ИГРОКОВ, ПВО, ДРОНОВ
+        // 5. МОДЕЛИ ИГРОКОВ, ПВО
         // ==========================================
         function createPlayerModel(team) {
             const group = new THREE.Group();
             let color = team === 'red' ? 0xaa3333 : 0x3333aa;
             const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.4), new THREE.MeshStandardMaterial({ color: color }));
-            body.position.y = 0.6;
+            body.position.y = 0.6; body.name = "body";
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xddaa88 }));
-            head.position.y = 1.4;
+            head.position.y = 1.4; head.name = "head";
             const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            gun.position.set(0.3, 0.9, -0.4); 
+            gun.position.set(0.3, 0.9, -0.4); gun.name = "gun";
             group.add(body); group.add(head); group.add(gun);
             return group;
         }
 
         function createPvoModel() {
             const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x223322 }));
+            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
             base.position.y = 0.75;
-            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x334433 }));
+            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
             turret.position.y = 1.75; turret.name = "turret";
             const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111}));
             m1.position.set(-0.6, 0.6, -0.5);
@@ -271,11 +273,21 @@
                 if (!playerMeshes[id]) {
                     playerMeshes[id] = createPlayerModel(p.team); scene.add(playerMeshes[id]);
                 }
-                playerMeshes[id].position.set(p.x, 0, p.z); playerMeshes[id].rotation.y = p.yaw; playerMeshes[id].children[1].rotation.x = p.pitch;
+                playerMeshes[id].position.set(p.x, 0, p.z); 
+                playerMeshes[id].rotation.y = p.yaw; 
+                playerMeshes[id].getObjectByName("head").rotation.x = p.pitch;
+                
+                // Анимация приседа у других игроков
+                if (p.crouch) {
+                    playerMeshes[id].scale.set(1, 0.5, 1);
+                } else {
+                    playerMeshes[id].scale.set(1, 1, 1);
+                }
             }
         });
 
-        const pvoSpots = [{id: 'pvo_red', x: 0, z: 60}, {id: 'pvo_blue', x: 0, z: -60}];
+        // ПВО стоят в окопах
+        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}];
         const pvoMeshes = {};
         pvoSpots.forEach(spot => {
             let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m;
@@ -333,11 +345,10 @@
             if (now - lastShootTime < fireDelay) return;
             lastShootTime = now;
             
-            // Задаем цель для отдачи (Оружие дергается назад)
             recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.15; 
-
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
+            
             let bId = 'b_' + myId + '_' + now;
             db.ref('bullets/' + bId).set({
                 owner: myId, team: myTeam, dmg: dmg, 
@@ -354,6 +365,7 @@
             mesh.position.set(b.x, b.y, b.z); mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
             scene.add(mesh); activeBullets[snap.key] = { data: b, mesh: mesh };
         });
+        
         db.ref('bullets').on('child_removed', snap => {
             if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; }
         });
@@ -361,7 +373,7 @@
         function launchShahed() {
             if (controlMode !== 'player' || isPaused) return;
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
-            controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = playerHeight + 1; shahedUnit.z = myUnit.z;
+            controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
             document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none';
             document.getElementById('crosshair').innerText = '[- + -]';
         }
@@ -408,6 +420,10 @@
         const keys = {};
         window.addEventListener('keydown', e => { 
             keys[e.code] = true; 
+            
+            // ПРИСЕД
+            if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = true;
+
             if (e.code === 'KeyF' && inGame && controlMode !== 'shahed' && !isPaused) {
                 if (controlMode === 'pvo') {
                     db.ref('pvos/' + inPvoId).update({owner: null});
@@ -426,7 +442,11 @@
             }
             if (e.code === 'KeyQ' && inGame && !isPaused) launchShahed();
         });
-        window.addEventListener('keyup', e => keys[e.code] = false);
+        
+        window.addEventListener('keyup', e => {
+            keys[e.code] = false;
+            if (e.code === 'KeyC' || e.code === 'ShiftLeft') isCrouching = false;
+        });
 
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
@@ -434,16 +454,15 @@
                     isPaused = false; document.getElementById('pauseScreen').style.display = 'none';
                 } else {
                     isPaused = true; document.getElementById('pauseScreen').style.display = 'flex';
-                    for(let k in keys) keys[k] = false;
+                    for(let k in keys) keys[k] = false; isCrouching = false;
                 }
             }
         });
 
         window.addEventListener('mousedown', e => { 
             if (!inGame) return;
-            if (document.pointerLockElement !== document.body) {
-                document.body.requestPointerLock();
-            } else { shoot(); }
+            if (document.pointerLockElement !== document.body) document.body.requestPointerLock();
+            else shoot(); 
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -460,7 +479,6 @@
             requestAnimationFrame(animate);
             if (!inGame || isPaused) return;
 
-            // Логика кулдауна Шахеда
             if (controlMode !== 'shahed') {
                 if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) {
                     document.getElementById('cooldown').innerText = "Шахед: [ ГОТОВ (Q) ]"; document.getElementById('cooldown').style.color = "lime";
@@ -470,7 +488,7 @@
                 }
             }
 
-            fpsWeaponGroup.visible = (controlMode === 'player'); // Прячем пушку в ПВО и дроне
+            fpsWeaponGroup.visible = (controlMode === 'player'); 
 
             if (controlMode === 'shahed') {
                 let sSpeed = 0.2; 
@@ -478,7 +496,7 @@
                 shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
                 camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
                 
-                if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, true, shahedUnit.y)) explodeShahed();
+                if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
                 else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
             } 
             else if (controlMode === 'pvo') {
@@ -486,38 +504,37 @@
                 db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); document.getElementById('hint').style.display = 'none';
             } 
             else {
+                // ПРИСЕДАНИЕ И ДВИЖЕНИЕ
+                let targetHeight = isCrouching ? 0.8 : 1.6;
+                playerHeight += (targetHeight - playerHeight) * 0.2; // Плавное приседание
+                let currentSpeed = isCrouching ? speed * 0.4 : speed; // На кортах медленнее
+
                 let dx = 0, dz = 0;
                 let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
                 let right = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
 
-                if (keys['KeyW']) { dx += forward.x * speed; dz += forward.z * speed; }
-                if (keys['KeyS']) { dx -= forward.x * speed; dz -= forward.z * speed; }
-                if (keys['KeyA']) { dx -= right.x * speed; dz -= right.z * speed; }
-                if (keys['KeyD']) { dx += right.x * speed; dz += right.z * speed; }
+                if (keys['KeyW']) { dx += forward.x * currentSpeed; dz += forward.z * currentSpeed; }
+                if (keys['KeyS']) { dx -= forward.x * currentSpeed; dz -= forward.z * currentSpeed; }
+                if (keys['KeyA']) { dx -= right.x * currentSpeed; dz -= right.z * currentSpeed; }
+                if (keys['KeyD']) { dx += right.x * currentSpeed; dz += right.z * currentSpeed; }
 
-                if (!checkCollision(myUnit.x + dx, myUnit.z)) myUnit.x += dx;
-                if (!checkCollision(myUnit.x, myUnit.z + dz)) myUnit.z += dz;
+                if (!checkCollision(myUnit.x + dx, myUnit.z, 0.5)) myUnit.x += dx;
+                if (!checkCollision(myUnit.x, myUnit.z + dz, 0.5)) myUnit.z += dz;
 
-                // Анимация оружия (Покачивание при ходьбе + Отдача при выстреле)
                 let swayX = 0; let swayY = 0;
                 if (dx !== 0 || dz !== 0) {
-                    headBobTimer += 0.2; 
-                    camera.position.set(myUnit.x, playerHeight + Math.abs(Math.sin(headBobTimer)) * 0.15, myUnit.z);
-                    swayX = Math.sin(headBobTimer * 0.5) * 0.02; // Оружие качается влево-вправо
-                    swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; // Оружие качается вверх-вниз
+                    headBobTimer += (isCrouching ? 0.1 : 0.2); 
+                    camera.position.set(myUnit.x, playerHeight + Math.abs(Math.sin(headBobTimer)) * 0.1, myUnit.z);
+                    swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; 
                 } else {
                     camera.position.set(myUnit.x, playerHeight, myUnit.z);
                 }
 
-                // Плавное возвращение оружия на место после выстрела
-                recoilOffset += (recoilTarget - recoilOffset) * 0.2; // Плавность отдачи
-                recoilTarget *= 0.8; // Затухание отдачи
-                
-                // Применяем позицию и поворот к оружию
+                recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
                 fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset);
-                fpsWeaponGroup.rotation.x = recoilOffset * 0.5; // Ствол немного задирается вверх
+                fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
 
-                db.ref('players/' + myId).update({ x: myUnit.x, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
+                db.ref('players/' + myId).update({ x: myUnit.x, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
 
                 let canSit = false;
                 for (let id in pvoMeshes) {
@@ -529,11 +546,35 @@
             let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw;
             camera.quaternion.setFromEuler(euler);
 
+            // Обработка пуль
             for (let id in activeBullets) {
-                let b = activeBullets[id]; b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
+                let b = activeBullets[id]; 
+                b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
+                
+                // Проверка столкновения пули со стеной
+                if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y)) {
+                    if (b.data.owner === myId) db.ref('bullets/' + id).remove();
+                    scene.remove(b.mesh); delete activeBullets[id];
+                    continue;
+                }
+
+                // Проверка попадания в меня (Точный хитбокс!)
                 if (b.data.team !== myTeam && controlMode !== 'shahed') {
-                    let hitRadius = controlMode === 'pvo' ? 2.5 : 1.2;
-                    if (camera.position.distanceTo(b.mesh.position) < hitRadius) { takeDamage(b.data.dmg); db.ref('bullets/' + id).remove(); }
+                    let dX = b.mesh.position.x - myUnit.x; let dZ = b.mesh.position.z - myUnit.z;
+                    let dist2D = Math.sqrt(dX*dX + dZ*dZ);
+                    let bY = b.mesh.position.y; let cY = camera.position.y;
+                    
+                    let hit = false;
+                    if (controlMode === 'pvo') {
+                        if (dist2D < 2.5 && Math.abs(bY - cY) < 2.0) hit = true;
+                    } else {
+                        // Хитбокс пехоты: по ширине 0.8м, по высоте от ног (cY - 1.2) до макушки (cY + 0.3)
+                        if (dist2D < 0.8 && bY > cY - 1.2 && bY < cY + 0.3) hit = true;
+                    }
+
+                    if (hit) { 
+                        takeDamage(b.data.dmg); db.ref('bullets/' + id).remove(); 
+                    }
                 }
             }
 
@@ -555,10 +596,10 @@
             
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block';
             
-            buildFpsWeapon(myClass); // Создаем 3D модель пушки в руках!
+            buildFpsWeapon(myClass); 
 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.z = spawn.z;
-            db.ref('players/' + myId).set({ x: myUnit.x, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam });
+            db.ref('players/' + myId).set({ x: myUnit.x, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false });
             db.ref('players/' + myId).onDisconnect().remove();
 
             inGame = true; document.body.requestPointerLock(); animate();
