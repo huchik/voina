@@ -2,43 +2,31 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Фикс Регистрации Урона</title>
+    <title>Окопная Война: Сбитие Дронов</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
-        
         canvas { image-rendering: pixelated; }
         body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-        
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-        
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
         #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
-        
-        /* СНАЙПЕРСКИЙ ПРИЦЕЛ */
         #sniperScope { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle, transparent 20%, black 70%); display: none; z-index: 11; pointer-events: none; }
         #sniperScope::before, #sniperScope::after { content: ''; position: absolute; background: black; }
         #sniperScope::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
         #sniperScope::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
-
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
-        
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
-
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
         .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; }
         @keyframes fadeout { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
-
         #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; overflow: hidden; }
         #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
-        
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
-        
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
-        
         .teams-container { display: flex; gap: 50px; }
         .team-box { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px solid #333; background: #1a1a1a;}
         .team-red { border-color: #aa3333; }
@@ -70,97 +58,54 @@
         </div>
         <p style="color: gray; margin-top: 40px;">ЛКМ - Огонь | ПКМ - Прицел | Q - Спецумение | G - Граната | F - ПВО | C - Присесть</p>
     </div>
-
     <div id="pauseScreen">
         <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
-        <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Кликни, чтобы вернуться в бой</p>
+        <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Бой продолжается! Кликни, чтобы вернуться</p>
     </div>
-
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
     <div id="killfeed"></div>
     <div id="sniperScope"></div> 
-
     <div id="ui" style="display:none;">
-        <div id="crosshair">✛</div>
-        <div id="hitmarker">✖</div>
-        <div id="hint">Нажми F</div>
+        <div id="crosshair">✛</div><div id="hitmarker">✖</div><div id="hint">Нажми F</div>
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
-            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ</div>
+            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">ЛЕТИ В ЦЕЛЬ (HP: <span id="shahedHpUi">2</span>)</div>
         </div>
-        <div id="hud">
-            Команда: <span id="teamDisplay">...</span> | Класс: <span id="classDisplay">...</span> <br><br>
-            HP: <span id="hpDisplay" style="color:lime; font-size: 24px; font-weight: bold;">100</span> | ПВО: <span id="pvoStatus">НЕТ</span>
-        </div>
-        <div id="cooldown">
-            Спецумение (Q): <span id="qStatus" style="color:lime">ГОТОВО</span><br>
-            Граната (G): <span id="gStatus" style="color:lime">ГОТОВА</span>
-        </div>
+        <div id="hud">Команда: <span id="teamDisplay">...</span> | Класс: <span id="classDisplay">...</span> <br><br>HP: <span id="hpDisplay" style="color:lime; font-size: 24px; font-weight: bold;">100</span> | ПВО: <span id="pvoStatus">НЕТ</span></div>
+        <div id="cooldown">Спецумение (Q): <span id="qStatus" style="color:lime">ГОТОВО</span><br>Граната (G): <span id="gStatus" style="color:lime">ГОТОВА</span></div>
     </div>
     <div id="damageOverlay"></div>
-
     <script>
-        // ==========================================
-        // 1. ВСТАВЬ СЮДА СВОЙ КОНФИГ FIREBASE
-        // ==========================================
         const firebaseConfig = {
-            apiKey: "AIzaSyANRufTuyTUYgMmV7Dx5_b8budZNrrkCJs",
-            authDomain: "voina-e459e.firebaseapp.com",
-            databaseURL: "https://voina-e459e-default-rtdb.firebaseio.com",
-            projectId: "voina-e459e",
-            storageBucket: "voina-e459e.firebasestorage.app",
-            messagingSenderId: "226646836207",
-            appId: "1:226646836207:web:87fc0bbb8f38e2bd5b6c1a"
+            apiKey: "AIzaSyANRufTuyTUYgMmV7Dx5_b8budZNrrkCJs", authDomain: "voina-e459e.firebaseapp.com",
+            databaseURL: "https://voina-e459e-default-rtdb.firebaseio.com", projectId: "voina-e459e",
+            storageBucket: "voina-e459e.firebasestorage.app", messagingSenderId: "226646836207", appId: "1:226646836207:web:87fc0bbb8f38e2bd5b6c1a"
         };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        // ==========================================
-        // 2. WEB AUDIO API
-        // ==========================================
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        let actx = null;
-        let droneOscillator = null; let droneGain = null;
-
-        function initAudio() {
-            if (!actx) actx = new AudioContext();
-            if (actx.state === 'suspended') actx.resume();
-        }
-
+        firebase.initializeApp(firebaseConfig); const db = firebase.database();
+        const AudioContext = window.AudioContext || window.webkitAudioContext; let actx = null; let droneOscillator = null; let droneGain = null;
+        function initAudio() { if (!actx) actx = new AudioContext(); if (actx.state === 'suspended') actx.resume(); }
         function playShootSound() {
-            if (!actx) return;
-            const osc = actx.createOscillator(); const gain = actx.createGain();
-            osc.type = 'square'; osc.frequency.setValueAtTime(150, actx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+            if (!actx) return; const osc = actx.createOscillator(); const gain = actx.createGain();
+            osc.type = 'square'; osc.frequency.setValueAtTime(150, actx.currentTime); osc.frequency.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
             gain.gain.setValueAtTime(0.1, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
             osc.connect(gain); gain.connect(actx.destination); osc.start(); osc.stop(actx.currentTime + 0.1);
         }
-
         function playExplosionSound() {
-            if (!actx) return;
-            const bufferSize = actx.sampleRate * 1.5; const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate);
-            const data = buffer.getChannelData(0);
+            if (!actx) return; const bufferSize = actx.sampleRate * 1.5; const buffer = actx.createBuffer(1, bufferSize, actx.sampleRate); const data = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-            const noise = actx.createBufferSource(); noise.buffer = buffer;
-            const filter = actx.createBiquadFilter(); filter.type = 'lowpass';
+            const noise = actx.createBufferSource(); noise.buffer = buffer; const filter = actx.createBiquadFilter(); filter.type = 'lowpass';
             filter.frequency.setValueAtTime(1000, actx.currentTime); filter.frequency.exponentialRampToValueAtTime(10, actx.currentTime + 1.5);
             const gain = actx.createGain(); gain.gain.setValueAtTime(0.3, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 1.5);
             noise.connect(filter); filter.connect(gain); gain.connect(actx.destination); noise.start();
         }
-
         function playHitSound() {
-            if (!actx) return;
-            const osc = actx.createOscillator(); const gain = actx.createGain();
-            osc.type = 'triangle'; osc.frequency.setValueAtTime(800, actx.currentTime);
-            gain.gain.setValueAtTime(0.1, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.05);
+            if (!actx) return; const osc = actx.createOscillator(); const gain = actx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(800, actx.currentTime); gain.gain.setValueAtTime(0.1, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.05);
             osc.connect(gain); gain.connect(actx.destination); osc.start(); osc.stop(actx.currentTime + 0.05);
         }
-
         function startDroneSound() {
-            if (!actx) return;
-            droneOscillator = actx.createOscillator(); droneGain = actx.createGain();
-            droneOscillator.type = 'sawtooth'; droneOscillator.frequency.value = 60;
-            droneGain.gain.setValueAtTime(0, actx.currentTime); droneGain.gain.linearRampToValueAtTime(0.1, actx.currentTime + 0.5);
+            if (!actx) return; droneOscillator = actx.createOscillator(); droneGain = actx.createGain();
+            droneOscillator.type = 'sawtooth'; droneOscillator.frequency.value = 60; droneGain.gain.setValueAtTime(0, actx.currentTime); droneGain.gain.linearRampToValueAtTime(0.1, actx.currentTime + 0.5);
             droneOscillator.connect(droneGain); droneGain.connect(actx.destination); droneOscillator.start();
         }
         function stopDroneSound() {
@@ -168,49 +113,21 @@
             if (droneOscillator) { droneOscillator.stop(actx.currentTime + 0.3); droneOscillator = null; }
         }
 
-        // ==========================================
-        // 3. ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-        // ==========================================
         const myId = Math.random().toString(36).substring(2, 9);
-        let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100;
-        let inGame = false; let isPaused = false; 
-        
+        let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100; let inGame = false; let isPaused = false; 
         let controlMode = 'player'; let inPvoId = null; 
-        
-        let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000;
-        let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
-
-        let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 };
-        
-        const speed = 0.15; let isCrouching = false; let headBobTimer = 0;
-        let velocityY = 0; let isGrounded = true;
+        let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000; let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
+        let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 }; let shahedHp = 2;
+        const speed = 0.15; let isCrouching = false; let headBobTimer = 0; let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0;
-        
-        let isZoomed = false;
-        const DEFAULT_FOV = 75;
-        const SNIPER_FOV = 20;
-
-        const spawnPoints = {
-            'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}],
-            'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}]
-        };
+        let isZoomed = false; const DEFAULT_FOV = 75; const SNIPER_FOV = 20;
+        const spawnPoints = { 'red': [{x: -10, z: 80}, {x: 0, z: 80}, {x: 10, z: 80}], 'blue': [{x: -10, z: -80}, {x: 0, z: -80}, {x: 10, z: -80}] };
         function getSpawn(team) { return spawnPoints[team][Math.floor(Math.random() * spawnPoints[team].length)]; }
 
-        // ==========================================
-        // 4. 3D СЦЕНА, КАРТА, ФИЗИКА
-        // ==========================================
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x6e7b85);
-        scene.fog = new THREE.FogExp2(0x6e7b85, 0.012);
-        const camera = new THREE.PerspectiveCamera(DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 200);
-        scene.add(camera);
-        const renderer = new THREE.WebGLRenderer({ antialias: false });
-        renderer.setPixelRatio(0.3); renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        scene.add(new THREE.AmbientLight(0x555555));
-        const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8); dirLight.position.set(20, 50, -20); scene.add(dirLight);
-
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0x6e7b85); scene.fog = new THREE.FogExp2(0x6e7b85, 0.012);
+        const camera = new THREE.PerspectiveCamera(DEFAULT_FOV, window.innerWidth / window.innerHeight, 0.1, 200); scene.add(camera);
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(0.3); renderer.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(renderer.domElement);
+        scene.add(new THREE.AmbientLight(0x555555)); const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8); dirLight.position.set(20, 50, -20); scene.add(dirLight);
         const fpsWeaponGroup = new THREE.Group(); camera.add(fpsWeaponGroup);
         function buildFpsWeapon(cls) {
             while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
@@ -222,106 +139,56 @@
                 fpsWeaponGroup.add(barrel, stock, scope);
             } else if (cls === 'инженер') {
                 let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5).rotateX(Math.PI/2), mDark); barrel.position.set(0, 0, -0.1);
-                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1);
-                fpsWeaponGroup.add(barrel, body); 
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1); fpsWeaponGroup.add(barrel, body); 
             } else {
                 let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), mDark); barrel.position.set(0, 0, -0.2);
                 let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), mDark); body.position.set(0, -0.03, 0.1);
-                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), mDark); mag.position.set(0, -0.15, 0.1);
-                fpsWeaponGroup.add(barrel, body, mag);
+                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), mDark); mag.position.set(0, -0.15, 0.1); fpsWeaponGroup.add(barrel, body, mag);
             }
             fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
         }
 
-        const mapData = []; const wallsGroup = new THREE.Group();
-        scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
-        
-        function createWall(x, z, w, h, d) {
-            let m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x6e5a40 }));
-            m.position.set(x, h/2, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: w, d: d, h: h });
-        }
-        function createBush(x, z, r) {
-            let m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 }));
-            m.position.set(x, r, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 }); 
-        }
+        const mapData = []; const wallsGroup = new THREE.Group(); scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
+        function createWall(x, z, w, h, d) { let m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x6e5a40 })); m.position.set(x, h/2, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: w, d: d, h: h }); }
+        function createBush(x, z, r) { let m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); m.position.set(x, r, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 });  }
         createWall(0, -45, 200, 1.0, 2); createWall(-55, -53, 90, 1.6, 2); createWall(55, -53, 90, 1.6, 2);  
         createWall(0, 45, 200, 1.0, 2); createWall(-55, 53, 90, 1.6, 2); createWall(55, 53, 90, 1.6, 2);  
         createBush(-40, 0, 8); createBush(25, -20, 5); createBush(55, 10, 6); createBush(-5, 15, 3); createBush(5, -10, 4);   
         scene.add(wallsGroup);
-
         function checkCollision(nx, nz, ny) {
             if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; 
             for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4) && b.h > ny + 0.5) return true; }
             return false;
         }
         function getFloorHeight(nx, nz) {
-            let maxH = 0;
-            for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; }
+            let maxH = 0; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; }
             return maxH;
         }
 
-        // ==========================================
-        // 5. РАДАР (МИНИ-КАРТА) И ИГРОКИ
-        // ==========================================
         let serverPlayers = {}; 
         function drawMinimap() {
-            const canvas = document.getElementById('minimapCanvas'); if(!canvas) return;
-            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
-            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; ctx.fillRect(0, 45, 200, 10);
-            ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; ctx.fillRect(0, 145, 200, 10);
-
-            let allActive = [];
-            if (controlMode !== 'shahed') allActive.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
+            const canvas = document.getElementById('minimapCanvas'); if(!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
+            ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; ctx.fillRect(0, 45, 200, 10); ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; ctx.fillRect(0, 145, 200, 10);
+            let allActive = []; if (controlMode !== 'shahed') allActive.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
             for (let id in serverPlayers) if (!serverPlayers[id].inPvo) allActive.push({ x: serverPlayers[id].x, z: serverPlayers[id].z, team: serverPlayers[id].team });
-
             let bumpMap = new Array(201).fill(0);
             for (let p of allActive) {
                 let px = p.x + 100; let py = p.z + 100; let pull = 0;
-                if (p.team === 'red' && py < 115) pull = (py - 15) - 100;
-                else if (p.team === 'blue' && py > 85) pull = (py + 15) - 100;
-                if (pull !== 0) {
-                    for (let x = 0; x <= 200; x++) {
-                        let dx = Math.abs(x - px);
-                        if (dx < 35) bumpMap[x] += pull * Math.pow(Math.cos((dx / 35) * (Math.PI / 2)), 1.5);
-                    }
-                }
+                if (p.team === 'red' && py < 115) pull = (py - 15) - 100; else if (p.team === 'blue' && py > 85) pull = (py + 15) - 100;
+                if (pull !== 0) { for (let x = 0; x <= 200; x++) { let dx = Math.abs(x - px); if (dx < 35) bumpMap[x] += pull * Math.pow(Math.cos((dx / 35) * (Math.PI / 2)), 1.5); } }
             }
-
             ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5; ctx.beginPath();
-            for(let x = 0; x <= 200; x++) {
-                let finalY = 100 + bumpMap[x];
-                if (finalY < 55) finalY = 55; if (finalY > 145) finalY = 145;
-                if (x === 0) ctx.moveTo(x, finalY); else ctx.lineTo(x, finalY);
-            }
+            for(let x = 0; x <= 200; x++) { let finalY = 100 + bumpMap[x]; if (finalY < 55) finalY = 55; if (finalY > 145) finalY = 145; if (x === 0) ctx.moveTo(x, finalY); else ctx.lineTo(x, finalY); }
             ctx.stroke();
-
             for (let id in serverPlayers) {
                 let p = serverPlayers[id]; if (p.inPvo) continue; 
-                ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f';
-                ctx.beginPath(); ctx.arc(p.x + 100, p.z + 100, 3, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f'; ctx.beginPath(); ctx.arc(p.x + 100, p.z + 100, 3, 0, Math.PI * 2); ctx.fill();
             }
             if (controlMode !== 'shahed') {
-                let px = myUnit.x + 100; let py = myUnit.z + 100;
-                ctx.strokeStyle = '#ff0000'; ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; ctx.lineWidth = 1.5; ctx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    let angle = (i * Math.PI / 3) - Math.PI / 2;
-                    let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle);
-                    if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy);
-                }
+                let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#ff0000'; ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; ctx.lineWidth = 1.5; ctx.beginPath();
+                for (let i = 0; i < 6; i++) { let angle = (i * Math.PI / 3) - Math.PI / 2; let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
             }
-        }
-
-        function createPvoModel() {
-            const group = new THREE.Group();
-            const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 }));
-            base.position.y = 0.75;
-            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 }));
-            turret.position.y = 1.75; turret.name = "turret";
-            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
-            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
-            turret.add(m1); turret.add(m2); group.add(base); group.add(turret);
-            return group;
         }
 
         const playerMeshes = {};
@@ -341,43 +208,22 @@
             }
         });
 
-        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}];
-        const pvoMeshes = {};
+        function createPvoModel() {
+            const group = new THREE.Group(); const base = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 3), new THREE.MeshStandardMaterial({ color: 0x445544 })); base.position.y = 0.75;
+            const turret = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x556655 })); turret.position.y = 1.75; turret.name = "turret";
+            const m1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m1.position.set(-0.6, 0.6, -0.5);
+            const m2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 2), new THREE.MeshStandardMaterial({color: 0x111})); m2.position.set(0.6, 0.6, -0.5);
+            turret.add(m1); turret.add(m2); group.add(base); group.add(turret); return group;
+        }
+        const pvoSpots = [{id: 'pvo_red', x: 0, z: 49}, {id: 'pvo_blue', x: 0, z: -49}]; const pvoMeshes = {};
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
+        db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
 
-        db.ref('pvos').on('value', snap => {
-            const serverPvos = snap.val() || {};
-            for (let id in serverPvos) {
-                if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) {
-                    let turret = pvoMeshes[id].getObjectByName("turret");
-                    turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch;
-                }
-            }
-        });
-
-        // ==========================================
-        // 6. БОЕВАЯ СИСТЕМА И SHOOTER AUTHORITY
-        // ==========================================
-        let activeBullets = {}; let activeGrenades = {}; let activeDrones = {}; let activeMines = {};
-        let particles = []; let lastShootTime = 0;
-
-        function updateHpUi() {
-            let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp;
-            if (myHp > 60) hpElement.style.color = "lime"; else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red";
-        }
-
-        function showHitmarker() {
-            document.getElementById('hitmarker').style.display = 'block'; playHitSound();
-            setTimeout(() => document.getElementById('hitmarker').style.display = 'none', 100);
-        }
-
-        function resetZoom() {
-            isZoomed = false;
-            camera.fov = DEFAULT_FOV; camera.updateProjectionMatrix();
-            document.getElementById('sniperScope').style.display = 'none';
-            document.getElementById('crosshair').style.display = 'block';
-        }
-
+        let activeBullets = {}; let activeGrenades = {}; let activeDrones = {}; let activeMines = {}; let particles = []; let lastShootTime = 0;
+        function updateHpUi() { let hpElement = document.getElementById('hpDisplay'); hpElement.innerText = myHp; if (myHp > 60) hpElement.style.color = "lime"; else if (myHp > 30) hpElement.style.color = "orange"; else hpElement.style.color = "red"; }
+        function showHitmarker() { document.getElementById('hitmarker').style.display = 'block'; playHitSound(); setTimeout(() => document.getElementById('hitmarker').style.display = 'none', 100); }
+        function resetZoom() { isZoomed = false; camera.fov = DEFAULT_FOV; camera.updateProjectionMatrix(); document.getElementById('sniperScope').style.display = 'none'; document.getElementById('crosshair').style.display = 'block'; }
+        
         function die(killerData) {
             if (killerData) { db.ref('killfeed').push({ kTeam: killerData.team, kClass: killerData.cls, vTeam: myTeam, vClass: myClass }); }
             if (controlMode === 'shahed') {
@@ -385,110 +231,64 @@
                 document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block';
                 document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove();
             }
-            if (controlMode === 'pvo') {
-                db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null;
-                document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
-            }
-            controlMode = 'player'; myHp = 100; updateHpUi(); resetZoom();
-            let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
+            if (controlMode === 'pvo') { db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); }
+            controlMode = 'player'; myHp = 100; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
-        // ПОЛУЧЕНИЕ УРОНА ИЗ БАЗЫ (РАБОТАЕТ ДАЖЕ В ПАУЗЕ)
         db.ref('killfeed').on('child_added', snap => {
-            let k = snap.val();
-            let div = document.createElement('div'); div.className = 'kill-entry';
-            let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
-            div.innerHTML = `<span style="color:${kColor}">${k.kClass.toUpperCase()}</span> 💥 <span style="color:${vColor}">${k.vClass.toUpperCase()}</span>`;
-            document.getElementById('killfeed').appendChild(div);
-            setTimeout(() => div.remove(), 5000);
-            if(Object.keys(snap.val()).length > 10) snap.ref.remove(); 
+            let k = snap.val(); let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
+            div.innerHTML = `<span style="color:${kColor}">${k.kClass.toUpperCase()}</span> 💥 <span style="color:${vColor}">${k.vClass.toUpperCase()}</span>`; document.getElementById('killfeed').appendChild(div);
+            setTimeout(() => div.remove(), 5000); if(Object.keys(snap.val()).length > 10) snap.ref.remove(); 
         });
 
         function shoot() {
             if (controlMode === 'shahed' || isPaused) return; 
-            let now = Date.now();
-            let fireDelay = 120; let dmg = 20;
-            if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; }
-            if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
-            
+            let now = Date.now(); let fireDelay = 120; let dmg = 20;
+            if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; } if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
             if (now - lastShootTime < fireDelay) return;
-            lastShootTime = now; playShootSound();
-            recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
-            
+            lastShootTime = now; playShootSound(); recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
-            
             let bId = 'b_' + myId + '_' + now;
-            db.ref('bullets/' + bId).set({
-                owner: myId, team: myTeam, cls: myClass, dmg: dmg, 
-                x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo'
-            });
+            db.ref('bullets/' + bId).set({ owner: myId, team: myTeam, cls: myClass, dmg: dmg, x: camera.position.x, y: camera.position.y, z: camera.position.z, vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo' });
             setTimeout(() => db.ref('bullets/' + bId).remove(), 1000);
         }
 
         db.ref('bullets').on('child_added', snap => {
-            let b = snap.val(); let bColor = b.isPvo ? 0x00ff00 : (b.team === 'red' ? 0xff5555 : 0x5555ff);
-            let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: bColor }));
-            mesh.position.set(b.x, b.y, b.z); mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz);
-            scene.add(mesh); activeBullets[snap.key] = { data: b, mesh: mesh };
+            let b = snap.val(); let bColor = b.isPvo ? 0x00ff00 : (b.team === 'red' ? 0xff5555 : 0x5555ff); let mesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.8), new THREE.MeshBasicMaterial({ color: bColor }));
+            mesh.position.set(b.x, b.y, b.z); mesh.lookAt(b.x + b.vx, b.y + b.vy, b.z + b.vz); scene.add(mesh); activeBullets[snap.key] = { data: b, mesh: mesh };
         });
         db.ref('bullets').on('child_removed', snap => { if (activeBullets[snap.key]) { scene.remove(activeBullets[snap.key].mesh); delete activeBullets[snap.key]; } });
 
         function throwGrenade() {
             if (Date.now() - lastGrenadeTime < GRENADE_COOLDOWN) return;
-            lastGrenadeTime = Date.now();
-            let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            let gId = 'g_' + myId + '_' + Date.now();
-            db.ref('grenades/' + gId).set({
-                owner: myId, team: myTeam, cls: myClass,
-                x: camera.position.x, y: camera.position.y, z: camera.position.z,
-                vx: dir.x * 0.6, vy: dir.y * 0.6 + 0.3, vz: dir.z * 0.6
-            });
-            setTimeout(() => {
-                if(activeGrenades[gId]) {
-                    db.ref('explosions').push({ x: activeGrenades[gId].mesh.position.x, y: activeGrenades[gId].mesh.position.y, z: activeGrenades[gId].mesh.position.z, team: myTeam, cls: myClass, owner: myId });
-                    db.ref('grenades/' + gId).remove();
-                }
-            }, 2500);
+            lastGrenadeTime = Date.now(); let dir = new THREE.Vector3(); camera.getWorldDirection(dir); let gId = 'g_' + myId + '_' + Date.now();
+            db.ref('grenades/' + gId).set({ owner: myId, team: myTeam, cls: myClass, x: camera.position.x, y: camera.position.y, z: camera.position.z, vx: dir.x * 0.6, vy: dir.y * 0.6 + 0.3, vz: dir.z * 0.6 });
+            setTimeout(() => { if(activeGrenades[gId]) { db.ref('explosions').push({ x: activeGrenades[gId].mesh.position.x, y: activeGrenades[gId].mesh.position.y, z: activeGrenades[gId].mesh.position.z, team: myTeam, cls: myClass, owner: myId }); db.ref('grenades/' + gId).remove(); } }, 2500);
         }
 
-        db.ref('grenades').on('child_added', snap => {
-            let g = snap.val(); 
-            let mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15, 0), new THREE.MeshStandardMaterial({ color: 0x111111 }));
-            mesh.position.set(g.x, g.y, g.z); scene.add(mesh);
-            activeGrenades[snap.key] = { data: g, mesh: mesh, vx: g.vx, vy: g.vy, vz: g.vz };
-        });
+        db.ref('grenades').on('child_added', snap => { let g = snap.val(); let mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15, 0), new THREE.MeshStandardMaterial({ color: 0x111111 })); mesh.position.set(g.x, g.y, g.z); scene.add(mesh); activeGrenades[snap.key] = { data: g, mesh: mesh, vx: g.vx, vy: g.vy, vz: g.vz }; });
         db.ref('grenades').on('child_removed', snap => { if(activeGrenades[snap.key]) { scene.remove(activeGrenades[snap.key].mesh); delete activeGrenades[snap.key]; } });
 
         function placeMine() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
-            lastDroneTime = Date.now();
-            let mId = 'm_' + myId + '_' + Date.now();
-            db.ref('mines/' + mId).set({ owner: myId, team: myTeam, cls: myClass, x: myUnit.x, y: myUnit.y, z: myUnit.z });
+            lastDroneTime = Date.now(); let mId = 'm_' + myId + '_' + Date.now(); db.ref('mines/' + mId).set({ owner: myId, team: myTeam, cls: myClass, x: myUnit.x, y: myUnit.y, z: myUnit.z });
         }
-        
-        db.ref('mines').on('child_added', snap => {
-            let m = snap.val();
-            let mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x333333 }));
-            mesh.position.set(m.x, m.y + 0.05, m.z); scene.add(mesh);
-            activeMines[snap.key] = { data: m, mesh: mesh };
-        });
+        db.ref('mines').on('child_added', snap => { let m = snap.val(); let mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x333333 })); mesh.position.set(m.x, m.y + 0.05, m.z); scene.add(mesh); activeMines[snap.key] = { data: m, mesh: mesh }; });
         db.ref('mines').on('child_removed', snap => { if(activeMines[snap.key]) { scene.remove(activeMines[snap.key].mesh); delete activeMines[snap.key]; } });
 
         function launchShahed() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
-            resetZoom();
+            resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
+            db.ref('drones/' + myId + '/hits').remove(); // Очистка старых попаданий
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
-            document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none';
-            document.getElementById('minimap').style.display = 'none'; document.getElementById('crosshair').innerText = '[- + -]';
+            document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none'; document.getElementById('minimap').style.display = 'none'; document.getElementById('crosshair').innerText = '[- + -]';
             startDroneSound();
         }
 
-        function explodeShahed() {
+        function explodeShahed(midAir = false) {
             controlMode = 'player'; lastDroneTime = Date.now(); stopDroneSound();
-            document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block';
-            document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
+            document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛';
             db.ref('explosions').push({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, team: myTeam, cls: myClass, owner: myId });
             db.ref('drones/' + myId).remove();
         }
@@ -505,13 +305,12 @@
                     wing.position.z = 0.3; group.add(wing); activeDrones[id] = { mesh: group }; scene.add(activeDrones[id].mesh);
                 }
                 activeDrones[id].mesh.position.set(d.x, d.y, d.z); activeDrones[id].mesh.rotation.y = d.yaw; activeDrones[id].mesh.rotation.x = d.pitch;
+                activeDrones[id].team = d.team;
             }
         });
 
         db.ref('explosions').on('child_added', snap => {
             let exp = snap.val(); playExplosionSound();
-            
-            // Если Я создал взрыв, я вычисляю урон по врагам (Шутер Авторити)
             if (exp.owner === myId) {
                 for (let pId in serverPlayers) {
                     let p = serverPlayers[pId];
@@ -522,14 +321,11 @@
                     }
                 }
             }
-            
-            // Урон по себе
             if (controlMode !== 'shahed') {
                 let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
                 if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } 
                 else if (dist < 12) { myHp -= 50; updateHpUi(); if(myHp<=0) die(exp); }
             }
-
             for (let i = 0; i < 15; i++) {
                 let color = Math.random() > 0.5 ? 0x444444 : (Math.random() > 0.5 ? 0x222222 : 0xff5500); 
                 let m = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.9 }));
@@ -543,57 +339,43 @@
         // 9. ВВОД
         // ==========================================
         window.addEventListener('contextmenu', e => e.preventDefault());
-
         const keys = {};
         window.addEventListener('keydown', e => { initAudio(); keys[e.code] = true; });
         window.addEventListener('keyup', e => { keys[e.code] = false; });
-        
         document.addEventListener('pointerlockchange', () => {
             if (inGame) {
                 if (document.pointerLockElement === document.body) { isPaused = false; document.getElementById('pauseScreen').style.display = 'none'; } 
                 else { isPaused = true; document.getElementById('pauseScreen').style.display = 'flex'; for(let k in keys) keys[k] = false; isCrouching = false; resetZoom(); }
             }
         });
-
         window.addEventListener('mousedown', e => { 
-            initAudio(); 
-            if (!inGame) return; 
-            if (document.pointerLockElement !== document.body) {
-                let promise = document.body.requestPointerLock();
-                if (promise) promise.catch(err => console.log("Блок браузера"));
-            } else if (!isPaused) { 
+            initAudio(); if (!inGame) return; 
+            if (document.pointerLockElement !== document.body) { let promise = document.body.requestPointerLock(); if (promise) promise.catch(err => {}); } 
+            else if (!isPaused) { 
                 if (e.button === 2 && myClass === 'снайпер' && controlMode === 'player') {
-                    isZoomed = !isZoomed;
-                    camera.fov = isZoomed ? SNIPER_FOV : DEFAULT_FOV; camera.updateProjectionMatrix();
-                    document.getElementById('sniperScope').style.display = isZoomed ? 'block' : 'none';
-                    document.getElementById('crosshair').style.display = isZoomed ? 'none' : 'block';
+                    isZoomed = !isZoomed; camera.fov = isZoomed ? SNIPER_FOV : DEFAULT_FOV; camera.updateProjectionMatrix();
+                    document.getElementById('sniperScope').style.display = isZoomed ? 'block' : 'none'; document.getElementById('crosshair').style.display = isZoomed ? 'none' : 'block';
                 } else if (e.button === 0) shoot(); 
             } 
         });
-
         document.addEventListener('mousemove', (e) => {
             if (document.pointerLockElement === document.body && !isPaused) {
-                let sens = isZoomed ? 0.0005 : 0.002;
-                yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
+                let sens = isZoomed ? 0.0005 : 0.002; yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
 
         // ==========================================
-        // 10. ИГРОВОЙ ЦИКЛ
+        // 10. ИГРОВОЙ ЦИКЛ 
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
             if (!inGame) return; 
 
             if (controlMode !== 'shahed') drawMinimap();
-
             let qStatus = document.getElementById('qStatus');
-            if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; }
-            else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
+            if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; } else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
             let gStatus = document.getElementById('gStatus');
-            if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; }
-            else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
-
+            if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; } else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
             for (let id in activeGrenades) {
@@ -604,35 +386,43 @@
                 if (checkCollision(g.mesh.position.x, g.mesh.position.z + g.vz, g.mesh.position.y)) { g.vz = -g.vz * 0.5; }
             }
 
-            // ФИКС РЕГИ И ТУННЕЛИНГА (SHOOTER AUTHORITY)
             for (let id in activeBullets) {
                 let b = activeBullets[id]; 
-                
                 if (b.data.owner === myId) {
-                    // Мои пули: суб-степпинг для 100% рега (4 шага за кадр)
-                    let steps = 4;
-                    let stepX = b.data.vx / steps; let stepY = b.data.vy / steps; let stepZ = b.data.vz / steps;
+                    let steps = 4; let stepX = b.data.vx / steps; let stepY = b.data.vy / steps; let stepZ = b.data.vz / steps;
                     let bulletHit = false;
-
                     for(let s=0; s<steps; s++) {
                         b.mesh.position.x += stepX; b.mesh.position.y += stepY; b.mesh.position.z += stepZ;
-                        
                         if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
                             if (!isPaused) db.ref('bullets/' + id).remove(); bulletHit = true; break;
                         }
+                        
+                        // СБИТИЕ ДРОНОВ
+                        for (let dId in activeDrones) {
+                            let d = activeDrones[dId];
+                            if (d.team !== myTeam) {
+                                let dist = Math.sqrt(Math.pow(b.mesh.position.x - d.mesh.position.x, 2) + Math.pow(b.mesh.position.y - d.mesh.position.y, 2) + Math.pow(b.mesh.position.z - d.mesh.position.z, 2));
+                                if (dist < 2.0) { // Хитбокс Шахеда 
+                                    showHitmarker();
+                                    if (!isPaused) {
+                                        let dmg = b.data.isPvo ? 2 : 1;
+                                        db.ref('drones/' + dId + '/hits').push({ dmg: dmg });
+                                        db.ref('bullets/' + id).remove();
+                                    }
+                                    bulletHit = true; break;
+                                }
+                            }
+                        }
+                        if (bulletHit) break;
 
                         for (let pId in serverPlayers) {
                             let p = serverPlayers[pId];
                             if (p.team !== myTeam) {
                                 let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z;
                                 let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
-                                // Увеличенный хитбокс (радиус 1.5м)
                                 if (Math.sqrt(dX*dX + dZ*dZ) < 1.5 && b.mesh.position.y > pY - 0.5 && b.mesh.position.y < pY + pHeight + 0.5) {
                                     showHitmarker(); 
-                                    if (!isPaused) {
-                                        db.ref('players/' + pId + '/hits').push({ dmg: b.data.dmg, killerData: { team: myTeam, cls: myClass } });
-                                        db.ref('bullets/' + id).remove();
-                                    }
+                                    if (!isPaused) { db.ref('players/' + pId + '/hits').push({ dmg: b.data.dmg, killerData: { team: myTeam, cls: myClass } }); db.ref('bullets/' + id).remove(); }
                                     bulletHit = true; break;
                                 }
                             }
@@ -641,11 +431,8 @@
                     }
                     if(bulletHit) { scene.remove(b.mesh); delete activeBullets[id]; continue; }
                 } else {
-                    // Чужие пули: только визуализация
                     b.mesh.position.x += b.data.vx; b.mesh.position.y += b.data.vy; b.mesh.position.z += b.data.vz;
-                    if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) {
-                        scene.remove(b.mesh); delete activeBullets[id]; continue;
-                    }
+                    if (checkCollision(b.mesh.position.x, b.mesh.position.z, b.mesh.position.y - 0.5)) { scene.remove(b.mesh); delete activeBullets[id]; continue; }
                 }
             }
 
@@ -660,31 +447,24 @@
                 if (keys['Space'] && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
                 if (keys['KeyQ']) { if(myClass === 'инженер') placeMine(); else launchShahed(); keys['KeyQ'] = false; }
                 if (keys['KeyG']) { throwGrenade(); keys['KeyG'] = false; }
-                
                 if (keys['KeyF'] && controlMode !== 'shahed') {
                     if (controlMode === 'pvo') {
-                        db.ref('pvos/' + inPvoId).update({owner: null});
-                        myUnit.x = pvoMeshes[inPvoId].position.x - 3; myUnit.z = pvoMeshes[inPvoId].position.z; myUnit.y = 0;
-                        controlMode = 'player'; inPvoId = null;
-                        document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false});
-                        keys['KeyF'] = false; 
+                        db.ref('pvos/' + inPvoId).update({owner: null}); myUnit.x = pvoMeshes[inPvoId].position.x - 3; myUnit.z = pvoMeshes[inPvoId].position.z; myUnit.y = 0;
+                        controlMode = 'player'; inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); keys['KeyF'] = false; 
                     } else {
                         for (let id in pvoMeshes) {
                             if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) {
                                 controlMode = 'pvo'; inPvoId = id; db.ref('pvos/' + id).update({owner: myId});
-                                document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true});
-                                keys['KeyF'] = false; break;
+                                document.getElementById('pvoStatus').innerText = "АКТИВНО"; db.ref('players/' + myId).update({inPvo: true}); keys['KeyF'] = false; break;
                             }
                         }
                     }
                 }
-
                 if (controlMode === 'player') {
                     for(let id in activeMines) {
                         let m = activeMines[id];
                         if(m.data.team !== myTeam && Math.sqrt(Math.pow(myUnit.x - m.data.x, 2) + Math.pow(myUnit.z - m.data.z, 2)) < 2.0) {
-                            db.ref('explosions').push({ x: m.data.x, y: m.data.y, z: m.data.z, team: m.data.team, cls: m.data.cls });
-                            db.ref('mines/' + id).remove();
+                            db.ref('explosions').push({ x: m.data.x, y: m.data.y, z: m.data.z, team: m.data.team, cls: m.data.cls }); db.ref('mines/' + id).remove();
                         }
                     }
                 }
@@ -694,44 +474,29 @@
                     shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
                     camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
                     if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
-                    else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch });
+                    else db.ref('drones/' + myId).set({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch, team: myTeam });
                 } 
                 else if (controlMode === 'pvo') {
                     let pvo = pvoMeshes[inPvoId]; camera.position.set(pvo.position.x, 3.5, pvo.position.z);
-                    db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); 
-                    let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = 'none';
+                    db.ref('pvos/' + inPvoId).update({ yaw: yaw, pitch: pitch }); let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = 'none';
                 } 
                 else {
                     let floorY = getFloorHeight(myUnit.x, myUnit.z);
-                    if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; }
-                    myUnit.y += velocityY;
+                    if (myUnit.y > floorY) { velocityY -= 0.015; isGrounded = false; } myUnit.y += velocityY;
                     if (myUnit.y <= floorY) { myUnit.y = floorY; velocityY = 0; isGrounded = true; }
-
                     let currentSpeed = isCrouching ? speed * 0.4 : speed; 
-                    let dx = 0, dz = 0;
-                    let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-                    let right = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
-
-                    if (keys['KeyW']) { dx += forward.x * currentSpeed; dz += forward.z * currentSpeed; }
-                    if (keys['KeyS']) { dx -= forward.x * currentSpeed; dz -= forward.z * currentSpeed; }
-                    if (keys['KeyA']) { dx -= right.x * currentSpeed; dz -= right.z * currentSpeed; }
-                    if (keys['KeyD']) { dx += right.x * currentSpeed; dz += right.z * currentSpeed; }
-
-                    if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx;
-                    if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
-
+                    let dx = 0, dz = 0; let forward = new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw); let right = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+                    if (keys['KeyW']) { dx += forward.x * currentSpeed; dz += forward.z * currentSpeed; } if (keys['KeyS']) { dx -= forward.x * currentSpeed; dz -= forward.z * currentSpeed; }
+                    if (keys['KeyA']) { dx -= right.x * currentSpeed; dz -= right.z * currentSpeed; } if (keys['KeyD']) { dx += right.x * currentSpeed; dz += right.z * currentSpeed; }
+                    if (!checkCollision(myUnit.x + dx, myUnit.z, myUnit.y)) myUnit.x += dx; if (!checkCollision(myUnit.x, myUnit.z + dz, myUnit.y)) myUnit.z += dz;
                     let targetCamOffset = isCrouching ? 0.8 : 1.6; let swayX = 0; let swayY = 0;
                     if ((dx !== 0 || dz !== 0) && isGrounded && !isZoomed) { headBobTimer += (isCrouching ? 0.1 : 0.2); swayX = Math.sin(headBobTimer * 0.5) * 0.02; swayY = Math.abs(Math.sin(headBobTimer)) * 0.02; } 
                     camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
                     recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
                     fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
-
                     db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching });
-
                     let canSit = false;
-                    for (let id in pvoMeshes) {
-                        if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true;
-                    }
+                    for (let id in pvoMeshes) { if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true; }
                     let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
                 }
                 let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
@@ -740,36 +505,34 @@
         }
 
         window.startGame = function(team, selectedClass) {
-            initAudio(); resetZoom();
-            myTeam = team; myClass = selectedClass;
-            document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ";
-            document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
+            initAudio(); resetZoom(); myTeam = team; myClass = selectedClass;
+            document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ"; document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
-            
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; 
             buildFpsWeapon(myClass); 
-
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
-            
-            // Очистка старых хитов
             db.ref('players/' + myId + '/hits').remove();
             
             db.ref('players/' + myId).set({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false });
             db.ref('players/' + myId).onDisconnect().remove();
 
-            // ПОДПИСКА НА ПОЛУЧЕНИЕ УРОНА ИЗ БАЗЫ
             db.ref('players/' + myId + '/hits').on('child_added', snap => {
-                let hitData = snap.val();
-                myHp -= hitData.dmg; updateHpUi();
+                let hitData = snap.val(); myHp -= hitData.dmg; updateHpUi();
                 let overlay = document.getElementById('damageOverlay'); overlay.style.opacity = '0.6'; setTimeout(() => overlay.style.opacity = '0', 150);
-                if (myHp <= 0) die(hitData.killerData);
+                if (myHp <= 0) die(hitData.killerData); snap.ref.remove();
+            });
+
+            // ПОДПИСКА НА УРОН ПО МОЕМУ ДРОНУ
+            db.ref('drones/' + myId + '/hits').on('child_added', snap => {
+                if (controlMode === 'shahed') {
+                    shahedHp -= snap.val().dmg;
+                    document.getElementById('shahedHpUi').innerText = shahedHp;
+                    if (shahedHp <= 0) explodeShahed(true); // Сбитие в воздухе!
+                }
                 snap.ref.remove();
             });
 
-            inGame = true; 
-            let promise = document.body.requestPointerLock();
-            if (promise) promise.catch(e => {}); 
-            animate();
+            inGame = true; let promise = document.body.requestPointerLock(); if (promise) promise.catch(e => {}); animate();
         };
 
         window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
