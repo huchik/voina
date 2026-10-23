@@ -2,38 +2,39 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>3D Онлайн Война - Боевые действия</title>
+    <title>3D Онлайн Война</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         #ui { position: absolute; top: 10px; left: 10px; color: white; font-family: sans-serif; font-weight: bold; text-shadow: 1px 1px 2px black; z-index: 10; pointer-events: none; }
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 5; }
     </style>
-    <!-- Подключаем Three.js и Firebase -->
+    <!-- Подключаем Three.js и Firebase версии 8 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
-    <div id="ui">Подключение...</div>
+    <div id="ui">Загрузка...</div>
     <div id="damageOverlay"></div>
 
     <script>
-        // 1. ВСТАВЬ СВОЙ FIREBASE CONFIG СЮДА
+        // 1. ТВОЙ FIREBASE CONFIG
         const firebaseConfig = {
-            apiKey: "ТВОЙ_API_KEY",
-            authDomain: "твой-проект.firebaseapp.com",
-            databaseURL: "https://твой-проект-default-rtdb.firebaseio.com",
-            projectId: "твой-проект",
-            storageBucket: "твой-проект.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "ТВОЙ_APP_ID"
+            apiKey: "AIzaSyANRufTuyTUYgMmV7Dx5_b8budZNrrkCJs",
+            authDomain: "voina-e459e.firebaseapp.com",
+            // Если база не грузится, проверь в консоли Firebase, нет ли приписки региона (например: voina-e459e.europe-west1.firebasedatabase.app)
+            databaseURL: "https://voina-e459e-default-rtdb.firebaseio.com",
+            projectId: "voina-e459e",
+            storageBucket: "voina-e459e.firebasestorage.app",
+            messagingSenderId: "226646836207",
+            appId: "1:226646836207:web:87fc0bbb8f38e2bd5b6c1a"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
         // 2. НАСТРОЙКА 3D СЦЕНЫ
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
+        scene.background = new THREE.Color(0x87CEEB); // Небо
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -45,6 +46,7 @@
         dirLight.position.set(10, 20, 10);
         scene.add(dirLight);
 
+        // Земля
         const groundGeometry = new THREE.PlaneGeometry(100, 100);
         const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x4CAF50 });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -58,7 +60,7 @@
         
         let speed = 0.1;
         let myHeight = 0.5;
-        let myColor = 0xffff00; // Желтая пехота
+        let myColor = 0xffff00;
 
         if (myClass === 'шахед') { speed = 0.3; myHeight = 6; myColor = 0xff0000; } 
         if (myClass === 'пво') { speed = 0.05; myHeight = 1; myColor = 0x555555; }
@@ -71,16 +73,15 @@
             type: myClass 
         };
         
-        // Вектор направления для стрельбы (по умолчанию смотрим вверх по Z)
         let facingX = 0;
         let facingZ = -1; 
         let lastShootTime = 0;
 
-        // Отправляем себя в базу
+        // Отправка в базу
         db.ref('players/' + myId).set(myUnit);
         db.ref('players/' + myId).onDisconnect().remove();
 
-        // 4. МУЛЬТИПЛЕЕР: ИГРОКИ
+        // 4. ИГРОКИ НА СЕРВЕРЕ
         const playerMeshes = {};
 
         function createModel(type) {
@@ -114,19 +115,16 @@
                     scene.add(playerMeshes[id]);
                 }
                 let pHeight = p.type === 'шахед' ? 6 : (p.type === 'пво' ? 1 : 0.5);
-                
-                // Плавное сглаживание можно добавить позже, пока ставим координаты напрямую
                 playerMeshes[id].position.set(p.x, pHeight, p.z);
             }
         });
 
-        // 5. БОЕВАЯ СИСТЕМА (СНАРЯДЫ)
+        // 5. БОЕВАЯ СИСТЕМА
         let activeBullets = {};
 
-        // Функция выстрела
         function shoot() {
             let now = Date.now();
-            if (now - lastShootTime < 500) return; // Перезарядка 0.5 сек
+            if (now - lastShootTime < 500) return; // Кулдаун полсекунды
             lastShootTime = now;
 
             let bulletSpeed = 0.5;
@@ -134,12 +132,11 @@
             let vz = facingZ * bulletSpeed;
             let vy = 0;
 
-            // Специфика стрельбы классов
             if (myClass === 'пво') {
-                vy = 0.3; // Зенитная ракета летит вверх
+                vy = 0.3; // Зенитка стреляет вверх
             } else if (myClass === 'шахед') {
-                vy = -0.3; // Бомба падает вниз
-                vx = 0; vz = 0; // Падает прямо под себя
+                vy = -0.3; // Шахед сбрасывает бомбу вниз
+                vx = 0; vz = 0; 
             }
 
             let bulletId = 'b_' + myId + '_' + now;
@@ -153,21 +150,17 @@
                 vz: vz
             };
 
-            // Отправляем пулю на сервер
             db.ref('bullets/' + bulletId).set(bulletData);
 
-            // Удаляем пулю через 3 секунды, чтобы не засорять базу
             setTimeout(() => {
                 db.ref('bullets/' + bulletId).remove();
             }, 3000);
         }
 
-        // Слушаем появление пуль
         db.ref('bullets').on('child_added', (snapshot) => {
             let b = snapshot.val();
             let bId = snapshot.key;
 
-            // Создаем визуал пули
             let geo = new THREE.SphereGeometry(0.2, 8, 8);
             let mat = new THREE.MeshBasicMaterial({ color: 0xffa500 });
             let mesh = new THREE.Mesh(geo, mat);
@@ -177,7 +170,6 @@
             activeBullets[bId] = { data: b, mesh: mesh };
         });
 
-        // Слушаем удаление пуль
         db.ref('bullets').on('child_removed', (snapshot) => {
             let bId = snapshot.key;
             if (activeBullets[bId]) {
@@ -186,7 +178,7 @@
             }
         });
 
-        // 6. УПРАВЛЕНИЕ
+        // 6. УПРАВЛЕНИЕ И СМЕРТЬ
         const keys = {};
         window.addEventListener('keydown', (e) => {
             keys[e.code] = true;
@@ -194,13 +186,11 @@
         });
         window.addEventListener('keyup', (e) => keys[e.code] = false);
 
-        // Функция возрождения при смерти
         function respawn() {
             myUnit.x = (Math.random() - 0.5) * 80;
             myUnit.z = (Math.random() - 0.5) * 80;
             db.ref('players/' + myId).update({ x: myUnit.x, z: myUnit.z });
             
-            // Мигаем красным экраном
             let overlay = document.getElementById('damageOverlay');
             overlay.style.opacity = '0.5';
             setTimeout(() => overlay.style.opacity = '0', 200);
@@ -210,7 +200,6 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // Движение игрока
             let moved = false;
             let dx = 0, dz = 0;
 
@@ -223,34 +212,29 @@
                 myUnit.x += dx;
                 myUnit.z += dz;
                 moved = true;
-                // Обновляем направление для стрельбы (нормализуем вектор)
+                
                 let length = Math.sqrt(dx*dx + dz*dz);
                 facingX = dx / length;
                 facingZ = dz / length;
             }
 
-            // Границы карты
             myUnit.x = Math.max(-45, Math.min(45, myUnit.x));
             myUnit.z = Math.max(-45, Math.min(45, myUnit.z));
 
             if (moved) {
                 db.ref('players/' + myId).update({ x: myUnit.x, z: myUnit.z });
-                // Поворачиваем свою модельку (если она уже загрузилась)
                 if (playerMeshes[myId]) {
                     playerMeshes[myId].rotation.y = Math.atan2(facingX, facingZ);
                 }
             }
 
-            // Движение пуль и проверка столкновений
             for (let bId in activeBullets) {
                 let bullet = activeBullets[bId];
                 
-                // Двигаем пулю локально
                 bullet.mesh.position.x += bullet.data.vx;
                 bullet.mesh.position.y += bullet.data.vy;
                 bullet.mesh.position.z += bullet.data.vz;
 
-                // Проверка попадания по МНЕ (чужая пуля)
                 if (bullet.data.owner !== myId) {
                     let dist = Math.sqrt(
                         Math.pow(bullet.mesh.position.x - myUnit.x, 2) +
@@ -258,21 +242,27 @@
                         Math.pow(bullet.mesh.position.z - myUnit.z, 2)
                     );
 
-                    // Если дистанция меньше радиуса поражения
                     let hitRadius = (myClass === 'пво') ? 1.5 : 1.0; 
                     if (dist < hitRadius) {
-                        respawn(); // Меня убили!
-                        db.ref('bullets/' + bId).remove(); // Удаляем пулю с сервера
+                        respawn();
+                        db.ref('bullets/' + bId).remove();
                     }
                 }
             }
 
-            // Камера следит за игроком
             camera.position.set(myUnit.x, myHeight + 8, myUnit.z + 12);
             camera.lookAt(myUnit.x, myHeight, myUnit.z);
 
             renderer.render(scene, camera);
         }
+        
+        // Подстраиваем камеру при изменении окна
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
         animate();
     </script>
 </body>
