@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Анимации и Физика</title>
+    <title>Окопная Война: Фикс Анимаций</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -267,11 +267,11 @@
             let lR = new THREE.Group(); lR.position.set(0.15, 0.4, 0); lR.name = "legR";
             let lMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mB); lMeshR.position.y = -0.2; lR.add(lMeshR);
             
-            // Руки и оружие крутятся вместе за прицелом
+            // ФИКС РУК И ОРУЖИЯ: сдвигаем вперед (отрицательный Z), поворачиваем руки вперед
             let aimGroup = new THREE.Group(); aimGroup.position.set(0, 1.0, 0); aimGroup.name = "aimGroup";
             
-            let aL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aL.position.set(-0.35, -0.1, 0.2); aL.rotation.x = -Math.PI/3; aL.rotation.z = Math.PI/8;
-            let aR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aR.position.set(0.35, -0.1, 0.2); aR.rotation.x = -Math.PI/3; aR.rotation.z = -Math.PI/8;
+            let aL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aL.position.set(-0.35, -0.1, -0.2); aL.rotation.x = Math.PI/3; aL.rotation.z = Math.PI/8;
+            let aR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aR.position.set(0.35, -0.1, -0.2); aR.rotation.x = Math.PI/3; aR.rotation.z = -Math.PI/8;
             aimGroup.add(aL, aR);
             
             let wMat = new THREE.MeshStandardMaterial({color: 0x111});
@@ -289,7 +289,7 @@
                 let stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.25), wWood); stock.position.set(0, -0.04, 0.2);
                 weapon.add(body, barrel, mag, stock);
             }
-            weapon.position.set(0.15, -0.15, 0.3);
+            weapon.position.set(0.15, -0.15, -0.3); // Сдвиг вперед
             aimGroup.add(weapon);
             
             g.add(tor, bnd, hG, lL, lR, aimGroup); return g;
@@ -338,8 +338,7 @@
                 let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#00ff00'; ctx.fillStyle = 'rgba(0, 255, 0, 0.4)'; ctx.lineWidth = 1.5; ctx.beginPath();
                 for (let i = 0; i < 6; i++) { let angle = (i * Math.PI / 3) - Math.PI / 2; let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15;
-                ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15; ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
             }
         }
 
@@ -356,7 +355,6 @@
                 if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
                 if (id === myId || p.inPvo || p.y < -500) continue; 
                 
-                // Пересоздаем модель, если игрок сменил класс
                 if (!playerMeshes[id] || playerMeshes[id].userData.cls !== p.cls) {
                     if (playerMeshes[id]) { scene.remove(playerMeshes[id]); }
                     let color = p.team === 'red' ? 0xaa3333 : 0x3333aa;
@@ -372,7 +370,6 @@
                                     <span style="color:${p.team === 'red' ? '#ff5555' : '#5555ff'}">${p.name || 'Игрок'}</span>`;
                 }
                 
-                // Сохраняем целевые координаты для интерполяции
                 playerMeshes[id].userData.targetPos.set(p.x, p.y || 0, p.z);
                 playerMeshes[id].userData.targetYaw = p.yaw;
                 playerMeshes[id].userData.targetPitch = p.pitch;
@@ -477,10 +474,14 @@
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
             
-            // ФИЗИКА ВЫЛЕТА ПУЛИ: не из камеры, а со смещением (дуло оружия)
-            let muzzleOffset = new THREE.Vector3(0.2, -0.2, -0.6); 
-            if (isZoomed) muzzleOffset.set(0, -0.1, -0.5);
-            let spawnPos = muzzleOffset.applyMatrix4(camera.matrixWorld);
+            let spawnPos = new THREE.Vector3();
+            if (controlMode === 'pvo') {
+                spawnPos.copy(camera.position); // ПВО стреляет из камеры
+            } else {
+                let muzzleOffset = new THREE.Vector3(0.2, -0.2, -0.6); 
+                if (isZoomed) muzzleOffset.set(0, -0.1, -0.5);
+                spawnPos = muzzleOffset.applyMatrix4(camera.matrixWorld); // Пуля вылетает из ствола оружия
+            }
 
             let bId = 'b_' + myId + '_' + now;
             db.ref('bullets/' + bId).set({ owner: myId, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, dmg: dmg, x: spawnPos.x, y: spawnPos.y, z: spawnPos.z, vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo' });
@@ -538,7 +539,6 @@
                 if (id === myId) continue; 
                 
                 if (!activeDrones[id]) {
-                    // НОВАЯ МОДЕЛЬ FPV ДРОНА
                     let g = new THREE.Group(), mD = new THREE.MeshStandardMaterial({color: 0x222}), mP = new THREE.MeshStandardMaterial({color: 0xff3333, transparent: true, opacity: 0.7});
                     let b = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.05,0.3), mD);
                     let bat = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.05,0.15), new THREE.MeshStandardMaterial({color: 0x555})); bat.position.y = 0.05;
@@ -624,13 +624,13 @@
 
         setInterval(() => {
             if (inGame && controlMode !== 'dead') {
-                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow(), cls: myClass });
+                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow() });
                 if (controlMode === 'shahed') db.ref('drones/' + myId).update({ timestamp: getNow() });
             }
         }, 5000);
 
         // ==========================================
-        // 10. ИГРОВОЙ ЦИКЛ С АНИМАЦИЯМИ
+        // 10. ИГРОВОЙ ЦИКЛ 
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
@@ -644,26 +644,26 @@
             if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; } else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
-            // ИНТЕРПОЛЯЦИЯ И АНИМАЦИИ ИГРОКОВ (Анти-лаг)
             for (let id in playerMeshes) {
                 let mesh = playerMeshes[id];
                 if (mesh.userData && mesh.userData.targetPos) {
                     let oldPos = mesh.position.clone();
-                    mesh.position.lerp(mesh.userData.targetPos, 0.3); // Плавное движение
+                    mesh.position.lerp(mesh.userData.targetPos, 0.3);
                     mesh.rotation.y = mesh.userData.targetYaw;
                     
                     let head = mesh.getObjectByName("head");
                     let aimGroup = mesh.getObjectByName("aimGroup");
-                    if (head) head.rotation.x = mesh.userData.targetPitch;
-                    if (aimGroup) aimGroup.rotation.x = mesh.userData.targetPitch; // Оружие целится вверх/вниз
+                    
+                    // ФИКС ИНВЕРСИИ ГОЛОВЫ И ОРУЖИЯ ОТ 3 ЛИЦА
+                    if (head) head.rotation.x = -mesh.userData.targetPitch;
+                    if (aimGroup) aimGroup.rotation.x = -mesh.userData.targetPitch;
                     
                     let dist = oldPos.distanceTo(mesh.position);
                     if (dist > 0.01) { mesh.userData.animTime += dist * 15; } else { mesh.userData.animTime = 0; }
                     
-                    let legL = mesh.getObjectByName("legL");
-                    let legR = mesh.getObjectByName("legR");
+                    let legL = mesh.getObjectByName("legL"); let legR = mesh.getObjectByName("legR");
                     if (legL && legR) {
-                        legL.rotation.x = Math.sin(mesh.userData.animTime) * 0.6; // Перебирают ногами
+                        legL.rotation.x = Math.sin(mesh.userData.animTime) * 0.6;
                         legR.rotation.x = Math.sin(mesh.userData.animTime + Math.PI) * 0.6;
                     }
                     
