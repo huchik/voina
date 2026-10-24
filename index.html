@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: АК-47</title>
+    <title>Окопная Война: Очистка и АК-47</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -79,16 +79,16 @@
                 <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
                 <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик (АК-47)</button>
                 <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер</button>
-                <button class="btn" onclick="startGame('red', 'инженер')">Инженер</button>
+                <button class="btn" onclick="startGame('red', 'инженер')">Инженер (АК-47)</button>
             </div>
             <div class="team-box team-blue">
                 <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ</h2>
                 <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик (АК-47)</button>
                 <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер</button>
-                <button class="btn" onclick="startGame('blue', 'инженер')">Инженер</button>
+                <button class="btn" onclick="startGame('blue', 'инженер')">Инженер (АК-47)</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">Цель: Захватить вражеский окоп | Enter - Чат | Q - Шахед (30с)</p>
+        <p style="color: gray; margin-top: 40px;">Цель: Захватить вражеский окоп (100%) | Enter - Чат</p>
     </div>
 
     <div id="pauseScreen">
@@ -233,38 +233,16 @@
                 let stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), mWood); stock.position.set(0, -0.04, 0.3); 
                 let scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), mDark); scope.position.set(0, 0.05, 0.1); 
                 fpsWeaponGroup.add(barrel, stock, scope);
-            } else if (cls === 'инженер') {
-                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5).rotateX(Math.PI/2), mDark); barrel.position.set(0, 0, -0.1); 
-                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1); 
-                fpsWeaponGroup.add(barrel, body); 
             } else {
-                // ==========================================
-                // МОДЕЛЬ АК-47 (Штурмовик)
-                // ==========================================
-                let body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.4), mDark); 
-                body.position.set(0, -0.05, 0.1); 
-                
-                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7).rotateX(Math.PI/2), mDark); 
-                barrel.position.set(0, -0.03, -0.35); 
-                
-                let gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3).rotateX(Math.PI/2), mDark); 
-                gasTube.position.set(0, 0.01, -0.35);
-                
-                let handguard = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.25), mWood); 
-                handguard.position.set(0, -0.04, -0.25);
-                
-                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.1), mDark); 
-                mag.position.set(0, -0.2, 0.0); mag.rotation.x = -Math.PI / 12;
-                
-                let grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 0.08), mWood); 
-                grip.position.set(0, -0.15, 0.25); grip.rotation.x = Math.PI / 12;
-                
-                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.35), mWood); 
-                stock.position.set(0, -0.08, 0.45); stock.rotation.x = Math.PI / 16;
-                
-                let sight = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.05, 0.02), mDark);
-                sight.position.set(0, 0.01, -0.65);
-                
+                // АК-47 для Штурмовика и Инженера
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.4), mDark); body.position.set(0, -0.05, 0.1); 
+                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7).rotateX(Math.PI/2), mDark); barrel.position.set(0, -0.03, -0.35); 
+                let gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3).rotateX(Math.PI/2), mDark); gasTube.position.set(0, 0.01, -0.35);
+                let handguard = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.25), mWood); handguard.position.set(0, -0.04, -0.25);
+                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.1), mDark); mag.position.set(0, -0.2, 0.0); mag.rotation.x = -Math.PI / 12;
+                let grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 0.08), mWood); grip.position.set(0, -0.15, 0.25); grip.rotation.x = Math.PI / 12;
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.35), mWood); stock.position.set(0, -0.08, 0.45); stock.rotation.x = Math.PI / 16;
+                let sight = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.05, 0.02), mDark); sight.position.set(0, 0.01, -0.65);
                 fpsWeaponGroup.add(body, barrel, gasTube, handguard, mag, grip, stock, sight);
             }
             fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
@@ -313,7 +291,8 @@
                 let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#00ff00'; ctx.fillStyle = 'rgba(0, 255, 0, 0.4)'; ctx.lineWidth = 1.5; ctx.beginPath();
                 for (let i = 0; i < 6; i++) { let angle = (i * Math.PI / 3) - Math.PI / 2; let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15; ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15;
+                ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
             }
         }
 
@@ -357,6 +336,7 @@
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
         db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
 
+        // ЗАХВАТ БАЗЫ ЛОГИКА
         let captureData = { redBase: 0, blueBase: 0 };
         db.ref('capture').on('value', snap => {
             captureData = snap.val() || { redBase: 0, blueBase: 0 };
@@ -381,8 +361,20 @@
         function endGame(winnerTeam) {
             inGame = false; document.exitPointerLock(); let isVictory = (winnerTeam === myTeam);
             let screen = document.getElementById('endScreen'); screen.style.display = 'flex';
-            screen.innerHTML = isVictory ? '<h1 style="color:lime; font-size:60px;">ОКОП ЗАХВАЧЕН! ПОБЕДА!</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>' : '<h1 style="color:red; font-size:60px;">ВАШ ОКОП ЗАХВАЧЕН! ПОРАЖЕНИЕ</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>';
-            if (isVictory) db.ref('capture').set({redBase: 0, blueBase: 0});
+            screen.innerHTML = isVictory ? '<h1 style="color:lime; font-size:60px;">ОКОП ЗАХВАЧЕН! ПОБЕДА!</h1><p style="color:white; font-size: 20px;">Очистка карты и перезапуск...</p>' : '<h1 style="color:red; font-size:60px;">ВАШ ОКОП ЗАХВАЧЕН! ПОРАЖЕНИЕ</h1><p style="color:white; font-size: 20px;">Очистка карты и перезапуск...</p>';
+            
+            // ПОЛНАЯ ОЧИСТКА БАЗЫ ПРИ ПОБЕДЕ
+            if (isVictory) {
+                db.ref('capture').set({redBase: 0, blueBase: 0});
+                db.ref('killfeed').remove();
+                db.ref('chat').remove();
+                db.ref('mines').remove();
+                db.ref('grenades').remove();
+                db.ref('drones').remove();
+                db.ref('explosions').remove();
+                db.ref('bullets').remove();
+                db.ref('pvos').remove();
+            }
             setTimeout(() => location.reload(), 5000);
         }
 
@@ -399,7 +391,7 @@
             controlMode = 'dead'; myHp = 0; updateHpUi(); resetZoom(); 
             document.getElementById('hud').style.display = 'none'; document.getElementById('crosshair').style.display = 'none';
             document.getElementById('respawnScreen').style.display = 'flex';
-            db.ref('players/' + myId).update({ y: -1000, timestamp: getNow() }); 
+            db.ref('players/' + myId).update({ y: -1000, timestamp: getNow() }); // Прячем тело под карту
             
             let rTime = 5; document.getElementById('respawnTimer').innerText = rTime;
             let rInt = setInterval(() => {
@@ -419,6 +411,7 @@
         db.ref('killfeed').limitToLast(5).on('child_added', snap => {
             let k = snap.val(); 
             if(initialKills || getNow() - k.timestamp > 10000) return; 
+            
             let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
             div.innerHTML = `<img src="${k.kAvatar}" class="kill-avatar" style="border:1px solid ${kColor}"><span style="color:${kColor}">${k.kName}</span> 💥 <img src="${k.vAvatar}" class="kill-avatar" style="border:1px solid ${vColor}"><span style="color:${vColor}">${k.vName}</span>`; 
             document.getElementById('killfeed').appendChild(div); setTimeout(() => div.remove(), 5000); 
@@ -735,6 +728,21 @@
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('captureBoard').style.display = 'block';
             buildFpsWeapon(myClass); 
+
+            // ОЧИСТКА КАРТЫ ПРИ ЗАХОДЕ, ЕСЛИ СЕРВЕР ПУСТОЙ
+            db.ref('players').once('value', snap => {
+                let players = snap.val() || {};
+                let hasOthers = false; let now = getNow();
+                for(let id in players) { if (id !== myId && players[id].timestamp && now - players[id].timestamp < 30000) { hasOthers = true; break; } }
+                if (!hasOthers) {
+                    db.ref('capture').set({redBase: 0, blueBase: 0});
+                    db.ref('killfeed').remove(); db.ref('chat').remove();
+                    db.ref('mines').remove(); db.ref('grenades').remove();
+                    db.ref('drones').remove(); db.ref('explosions').remove();
+                    db.ref('bullets').remove(); db.ref('pvos').remove();
+                }
+            });
+
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
             db.ref('players/' + myId + '/hits').remove();
             
