@@ -2,11 +2,12 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Финал</title>
+    <title>Окопная Война: АК-47</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
         body > canvas { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
+        
         #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
         #crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.7); font-size: 20px; text-shadow: 1px 1px 0 #000; }
         #hitmarker { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); color: red; font-size: 24px; display: none; font-weight: bold; text-shadow: 1px 1px 0 #000; }
@@ -14,32 +15,43 @@
         #sniperScope::before, #sniperScope::after { content: ''; position: absolute; background: black; }
         #sniperScope::before { top: 50%; left: 0; width: 100%; height: 2px; transform: translateY(-50%); }
         #sniperScope::after { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+        
         #hud { position: absolute; bottom: 20px; left: 20px; font-size: 18px; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;}
         #cooldown { position: absolute; bottom: 20px; right: 20px; font-size: 18px; color: orange; text-shadow: 2px 2px 0 #000; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; text-align: right;}
         #hint { position: absolute; top: 60%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: yellow; text-shadow: 2px 2px 0 #000; display: none; z-index: 12; }
-        #scoreBoard { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; border: 2px solid #444; z-index: 10; display: none; text-shadow: 2px 2px 0 #000; letter-spacing: 2px; }
+        
+        #captureBoard { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 5px; border: 2px solid #444; z-index: 10; display: none; text-shadow: 2px 2px 0 #000; letter-spacing: 1px; color: white; }
+        
         #killfeed { position: absolute; top: 20px; right: 240px; width: 300px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; z-index: 10; }
         .kill-entry { background: rgba(0,0,0,0.6); padding: 5px 10px; border-radius: 4px; font-size: 14px; text-shadow: 1px 1px 0 #000; animation: fadeout 5s forwards; display: flex; align-items: center; gap: 5px; }
         .kill-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
         @keyframes fadeout { 0% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+        
         #chatUI { position: absolute; bottom: 100px; left: 20px; width: 400px; height: 250px; display: flex; flex-direction: column; justify-content: flex-end; z-index: 15; pointer-events: none; }
         #chatMessages { overflow-y: hidden; display: flex; flex-direction: column; gap: 2px; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; font-size: 14px; }
         .chat-msg { background: rgba(0,0,0,0.4); padding: 2px 5px; border-radius: 3px; display: flex; align-items: center; gap: 5px; }
         #chatInput { display: none; pointer-events: auto; background: rgba(0,0,0,0.8); border: 1px solid #555; color: white; padding: 8px; font-family: monospace; font-size: 14px; width: 100%; outline: none; }
+        
         #labelsContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; overflow: hidden; }
         .player-label { position: absolute; display: flex; flex-direction: column; align-items: center; text-shadow: 1px 1px 0 #000; font-size: 12px; font-weight: bold; transform-origin: center bottom; }
         .player-label img { width: 30px; height: 30px; border-radius: 50%; border: 2px solid; object-fit: cover; margin-bottom: 2px; }
+
         #minimap { position: absolute; top: 20px; right: 20px; width: 200px; height: 200px; background: rgba(0,0,0,0.7); border: 2px solid #555; border-radius: 10px; z-index: 10; display: none; box-shadow: 0 0 10px black; overflow: hidden; }
         #minimapCanvas { width: 200px !important; height: 200px !important; display: block; }
         #damageOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: red; opacity: 0; transition: opacity 0.1s; z-index: 5; pointer-events: none; }
         #droneOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-shadow: inset 0 0 100px rgba(0,255,0,0.3); border: 2px dashed rgba(0,255,0,0.2); display: none; pointer-events: none; z-index: 6; }
+        
+        #respawnScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(150,0,0,0.3); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 14; pointer-events: none; }
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         #endScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; pointer-events: auto;}
+        
         #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
+        
         .profile-setup { background: rgba(0,0,0,0.5); border: 2px solid #555; padding: 20px; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .profile-setup input[type="text"] { background: #222; border: 1px solid #666; color: white; padding: 10px; font-family: monospace; font-size: 16px; width: 250px; text-align: center; }
         .avatar-preview { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #888; object-fit: cover; background: #333; }
+        
         .teams-container { display: flex; gap: 50px; }
         .team-box { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px solid #333; background: #1a1a1a;}
         .team-red { border-color: #aa3333; }
@@ -65,24 +77,30 @@
         <div class="teams-container">
             <div class="team-box team-red">
                 <h2 style="color: #ff5555; margin-top: 0;">КРАСНЫЕ</h2>
-                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик</button>
+                <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик (АК-47)</button>
                 <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер</button>
                 <button class="btn" onclick="startGame('red', 'инженер')">Инженер</button>
             </div>
             <div class="team-box team-blue">
                 <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ</h2>
-                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик</button>
+                <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик (АК-47)</button>
                 <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер</button>
                 <button class="btn" onclick="startGame('blue', 'инженер')">Инженер</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">Бой идет до 15 очков | Enter - Чат | ЛКМ - Огонь | ПКМ - Прицел</p>
+        <p style="color: gray; margin-top: 40px;">Цель: Захватить вражеский окоп | Enter - Чат | Q - Шахед (30с)</p>
     </div>
 
     <div id="pauseScreen">
         <h1 style="color: white; text-shadow: 2px 2px 0px black;">ПАУЗА</h1>
         <p style="font-size: 20px; color: #fff; text-shadow: 1px 1px 0px black;">Кликни, чтобы вернуться</p>
     </div>
+
+    <div id="respawnScreen">
+        <h1 style="color: white; text-shadow: 2px 2px 0px black;">ВЫ УБИТЫ</h1>
+        <p style="font-size: 24px; color: yellow; text-shadow: 1px 1px 0px black;">Возрождение через <span id="respawnTimer">5</span>...</p>
+    </div>
+
     <div id="endScreen"></div>
     <div id="labelsContainer"></div>
     <div id="minimap"><canvas id="minimapCanvas" width="200" height="200"></canvas></div>
@@ -95,8 +113,8 @@
     </div>
 
     <div id="ui" style="display:none;">
-        <div id="scoreBoard">
-            <span style="color: #ff5555">КРАСНЫЕ</span> <span id="scoreRed" style="color:white">0</span> : <span id="scoreBlue" style="color:white">0</span> <span style="color: #5555ff">СИНИЕ</span>
+        <div id="captureBoard">
+            ОКОП КРАСНЫХ: <span id="capRed" style="color:#ff5555">0%</span> | ОКОП СИНИХ: <span id="capBlue" style="color:#5555ff">0%</span>
         </div>
         <div id="crosshair">✛</div><div id="hitmarker">✖</div><div id="hint">Нажми F</div>
         <div id="droneOverlay">
@@ -189,7 +207,10 @@
         const myId = Math.random().toString(36).substring(2, 9);
         let myTeam = 'red'; let myClass = 'штурмовик'; let myHp = 100; let inGame = false; let isPaused = false; let gameEnded = false;
         let controlMode = 'player'; let inPvoId = null; 
-        let lastDroneTime = -20000; const DRONE_COOLDOWN = 20000; let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
+        
+        let lastDroneTime = -30000; const DRONE_COOLDOWN = 30000;
+        let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
+        
         let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 }; let shahedHp = 2;
         const speed = 0.08; let isCrouching = false; let headBobTimer = 0; let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0; let savedYaw = 0; let savedPitch = 0;
@@ -208,11 +229,43 @@
             while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
             const mDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a}); const mWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
             if (cls === 'снайпер') {
-                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), mDark); barrel.position.set(0, 0, -0.4); let stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), mWood); stock.position.set(0, -0.04, 0.3); let scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), mDark); scope.position.set(0, 0.05, 0.1); fpsWeaponGroup.add(barrel, stock, scope);
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), mDark); barrel.position.set(0, 0, -0.4); 
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), mWood); stock.position.set(0, -0.04, 0.3); 
+                let scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), mDark); scope.position.set(0, 0.05, 0.1); 
+                fpsWeaponGroup.add(barrel, stock, scope);
             } else if (cls === 'инженер') {
-                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5).rotateX(Math.PI/2), mDark); barrel.position.set(0, 0, -0.1); let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1); fpsWeaponGroup.add(barrel, body); 
+                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.5).rotateX(Math.PI/2), mDark); barrel.position.set(0, 0, -0.1); 
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.4), mDark); body.position.set(0, -0.03, 0.1); 
+                fpsWeaponGroup.add(barrel, body); 
             } else {
-                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), mDark); barrel.position.set(0, 0, -0.2); let body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.5), mDark); body.position.set(0, -0.03, 0.1); let mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.12), mDark); mag.position.set(0, -0.15, 0.1); fpsWeaponGroup.add(barrel, body, mag);
+                // ==========================================
+                // МОДЕЛЬ АК-47 (Штурмовик)
+                // ==========================================
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.4), mDark); 
+                body.position.set(0, -0.05, 0.1); 
+                
+                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7).rotateX(Math.PI/2), mDark); 
+                barrel.position.set(0, -0.03, -0.35); 
+                
+                let gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3).rotateX(Math.PI/2), mDark); 
+                gasTube.position.set(0, 0.01, -0.35);
+                
+                let handguard = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.25), mWood); 
+                handguard.position.set(0, -0.04, -0.25);
+                
+                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.1), mDark); 
+                mag.position.set(0, -0.2, 0.0); mag.rotation.x = -Math.PI / 12;
+                
+                let grip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 0.08), mWood); 
+                grip.position.set(0, -0.15, 0.25); grip.rotation.x = Math.PI / 12;
+                
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.35), mWood); 
+                stock.position.set(0, -0.08, 0.45); stock.rotation.x = Math.PI / 16;
+                
+                let sight = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.05, 0.02), mDark);
+                sight.position.set(0, 0.01, -0.65);
+                
+                fpsWeaponGroup.add(body, barrel, gasTube, handguard, mag, grip, stock, sight);
             }
             fpsWeaponGroup.position.set(0.35, -0.3, -0.5); 
         }
@@ -220,10 +273,15 @@
         const mapData = []; const wallsGroup = new THREE.Group(); scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
         function createWall(x, z, w, h, d) { let m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x6e5a40 })); m.position.set(x, h/2, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: w, d: d, h: h }); }
         function createBush(x, z, r) { let m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); m.position.set(x, r, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 });  }
+        
+        const redFlag = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xff0000 })); redFlag.position.set(0, 4, 50); scene.add(redFlag);
+        const blueFlag = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x0000ff })); blueFlag.position.set(0, 4, -50); scene.add(blueFlag);
+        
         createWall(0, -45, 200, 1.0, 2); createWall(-55, -53, 90, 1.6, 2); createWall(55, -53, 90, 1.6, 2);  
         createWall(0, 45, 200, 1.0, 2); createWall(-55, 53, 90, 1.6, 2); createWall(55, 53, 90, 1.6, 2);  
         createBush(-40, 0, 8); createBush(25, -20, 5); createBush(55, 10, 6); createBush(-5, 15, 3); createBush(5, -10, 4);   
         scene.add(wallsGroup);
+        
         function checkCollision(nx, nz, ny) {
             if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; 
             for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4) && b.h > ny + 0.5) return true; } return false;
@@ -232,14 +290,13 @@
             let maxH = 0; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; } return maxH;
         }
 
-        let serverPlayers = {}; const labels = {}; 
-        const playerMeshes = {}; // НЭМСЭН
-
+        let serverPlayers = {}; const labels = {}; const playerMeshes = {}; 
+        
         function drawMinimap() {
             const canvas = document.getElementById('minimapCanvas'); if(!canvas) return; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 200, 200);
             ctx.fillStyle = 'rgba(85, 85, 255, 0.4)'; ctx.fillRect(0, 45, 200, 10); ctx.fillStyle = 'rgba(255, 85, 85, 0.4)'; ctx.fillRect(0, 145, 200, 10);
-            let allActive = []; if (controlMode !== 'shahed') allActive.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
-            for (let id in serverPlayers) if (!serverPlayers[id].inPvo) allActive.push({ x: serverPlayers[id].x, z: serverPlayers[id].z, team: serverPlayers[id].team });
+            let allActive = []; if (controlMode !== 'shahed' && controlMode !== 'dead') allActive.push({ x: myUnit.x, z: myUnit.z, team: myTeam });
+            for (let id in serverPlayers) if (!serverPlayers[id].inPvo && serverPlayers[id].y > -500) allActive.push({ x: serverPlayers[id].x, z: serverPlayers[id].z, team: serverPlayers[id].team });
             let bumpMap = new Array(201).fill(0);
             for (let p of allActive) {
                 let px = p.x + 100; let py = p.z + 100; let pull = 0;
@@ -249,29 +306,29 @@
             ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5; ctx.beginPath();
             for(let x = 0; x <= 200; x++) { let finalY = 100 + bumpMap[x]; if (finalY < 55) finalY = 55; if (finalY > 145) finalY = 145; if (x === 0) ctx.moveTo(x, finalY); else ctx.lineTo(x, finalY); } ctx.stroke();
             for (let id in serverPlayers) {
-                let p = serverPlayers[id]; if (p.inPvo) continue; ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f'; ctx.beginPath(); ctx.arc(p.x + 100, p.z + 100, 3, 0, Math.PI * 2); ctx.fill();
+                let p = serverPlayers[id]; if (p.inPvo || p.y < -500) continue; 
+                ctx.fillStyle = (p.team === 'red') ? '#f55' : '#55f'; ctx.beginPath(); ctx.arc(p.x + 100, p.z + 100, 3, 0, Math.PI * 2); ctx.fill();
             }
-            if (controlMode !== 'shahed') {
-                let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#ff0000'; ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; ctx.lineWidth = 1.5; ctx.beginPath();
+            if (controlMode !== 'shahed' && controlMode !== 'dead') {
+                let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#00ff00'; ctx.fillStyle = 'rgba(0, 255, 0, 0.4)'; ctx.lineWidth = 1.5; ctx.beginPath();
                 for (let i = 0; i < 6; i++) { let angle = (i * Math.PI / 3) - Math.PI / 2; let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15; ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
             }
         }
 
         db.ref('players').on('value', snap => {
             const now = getNow(); serverPlayers = snap.val() || {}; 
-            
             for (let id in playerMeshes) {
                 let p = serverPlayers[id];
-                if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 10000) { 
+                if (!p || p.inPvo || !p.timestamp || now - p.timestamp > 10000 || p.y < -500) { 
                     scene.remove(playerMeshes[id]); delete playerMeshes[id]; if(labels[id]) { labels[id].remove(); delete labels[id]; } 
                 } 
             }
-            
             for (let id in serverPlayers) {
                 let p = serverPlayers[id];
                 if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
-                if (id === myId || p.inPvo) continue; 
+                if (id === myId || p.inPvo || p.y < -500) continue; 
                 
                 if (!playerMeshes[id]) {
                     const g = new THREE.Group(); let color = p.team === 'red' ? 0xaa3333 : 0x3333aa;
@@ -300,20 +357,32 @@
         pvoSpots.forEach(spot => { let m = createPvoModel(); m.position.set(spot.x, 0, spot.z); scene.add(m); pvoMeshes[spot.id] = m; });
         db.ref('pvos').on('value', snap => { const serverPvos = snap.val() || {}; for (let id in serverPvos) { if (pvoMeshes[id] && serverPvos[id].yaw !== undefined) { let turret = pvoMeshes[id].getObjectByName("turret"); turret.rotation.y = serverPvos[id].yaw; turret.rotation.x = serverPvos[id].pitch; } } });
 
-        db.ref('scores').on('value', snap => {
-            let s = snap.val() || { red: 0, blue: 0 };
-            document.getElementById('scoreRed').innerText = s.red || 0;
-            document.getElementById('scoreBlue').innerText = s.blue || 0;
-            if (inGame && !gameEnded && (s.red >= 15 || s.blue >= 15)) {
-                gameEnded = true; let winner = s.red >= 15 ? 'red' : 'blue'; endGame(winner);
+        let captureData = { redBase: 0, blueBase: 0 };
+        db.ref('capture').on('value', snap => {
+            captureData = snap.val() || { redBase: 0, blueBase: 0 };
+            document.getElementById('capRed').innerText = Math.floor(captureData.redBase) + '%';
+            document.getElementById('capBlue').innerText = Math.floor(captureData.blueBase) + '%';
+            if (inGame && !gameEnded) {
+                if (captureData.redBase >= 100) endGame('blue');
+                if (captureData.blueBase >= 100) endGame('red');
             }
         });
+
+        setInterval(() => {
+            if (!inGame || isPaused || gameEnded || controlMode !== 'player') return;
+            let enemyBaseZ = (myTeam === 'red') ? -50 : 50;
+            let dist = Math.sqrt(Math.pow(myUnit.x - 0, 2) + Math.pow(myUnit.z - enemyBaseZ, 2));
+            if (dist < 10) { 
+                let targetBase = (myTeam === 'red') ? 'blueBase' : 'redBase';
+                db.ref('capture/' + targetBase).transaction(val => Math.min(100, (val || 0) + 2)); 
+            }
+        }, 1000);
 
         function endGame(winnerTeam) {
             inGame = false; document.exitPointerLock(); let isVictory = (winnerTeam === myTeam);
             let screen = document.getElementById('endScreen'); screen.style.display = 'flex';
-            screen.innerHTML = isVictory ? '<h1 style="color:lime">ПОБЕДА!</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>' : '<h1 style="color:red">ПОРАЖЕНИЕ</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>';
-            if (isVictory) db.ref('scores').set({red: 0, blue: 0});
+            screen.innerHTML = isVictory ? '<h1 style="color:lime; font-size:60px;">ОКОП ЗАХВАЧЕН! ПОБЕДА!</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>' : '<h1 style="color:red; font-size:60px;">ВАШ ОКОП ЗАХВАЧЕН! ПОРАЖЕНИЕ</h1><p style="color:white; font-size: 20px;">Перезапуск через 5 секунд...</p>';
+            if (isVictory) db.ref('capture').set({redBase: 0, blueBase: 0});
             setTimeout(() => location.reload(), 5000);
         }
 
@@ -323,20 +392,33 @@
         function resetZoom() { isZoomed = false; camera.fov = DEFAULT_FOV; camera.updateProjectionMatrix(); document.getElementById('sniperScope').style.display = 'none'; document.getElementById('crosshair').style.display = 'block'; }
         
         function die(killerData) {
-            if (killerData) { 
-                db.ref('killfeed').push({ kTeam: killerData.team, kName: killerData.name, kAvatar: killerData.avatar, vTeam: myTeam, vName: myName, vAvatar: myAvatarUrl, timestamp: getNow() }); 
-                db.ref('scores/' + killerData.team).transaction(val => (val || 0) + 1);
-            }
-            if (controlMode === 'shahed') { stopDroneSound(); document.getElementById('droneOverlay').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('crosshair').innerText = '✛'; db.ref('drones/' + myId).remove(); }
-            if (controlMode === 'pvo') { db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null; document.getElementById('pvoStatus').innerText = "НЕТ"; db.ref('players/' + myId).update({inPvo: false}); }
-            controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi(); resetZoom(); let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
+            if (killerData) { db.ref('killfeed').push({ kTeam: killerData.team, kName: killerData.name, kAvatar: killerData.avatar, vTeam: myTeam, vName: myName, vAvatar: myAvatarUrl, timestamp: getNow() }); }
+            if (controlMode === 'shahed') { stopDroneSound(); document.getElementById('droneOverlay').style.display = 'none'; db.ref('drones/' + myId).remove(); }
+            if (controlMode === 'pvo') { db.ref('pvos/' + inPvoId).update({owner: null}); inPvoId = null; db.ref('players/' + myId).update({inPvo: false}); }
+            
+            controlMode = 'dead'; myHp = 0; updateHpUi(); resetZoom(); 
+            document.getElementById('hud').style.display = 'none'; document.getElementById('crosshair').style.display = 'none';
+            document.getElementById('respawnScreen').style.display = 'flex';
+            db.ref('players/' + myId).update({ y: -1000, timestamp: getNow() }); 
+            
+            let rTime = 5; document.getElementById('respawnTimer').innerText = rTime;
+            let rInt = setInterval(() => {
+                rTime--; document.getElementById('respawnTimer').innerText = rTime;
+                if(rTime <= 0) { clearInterval(rInt); respawn(); }
+            }, 1000);
+        }
+
+        function respawn() {
+            if (!inGame || gameEnded) return;
+            controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi();
+            document.getElementById('respawnScreen').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('crosshair').style.display = 'block';
+            let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
 
         let initialKills = true;
         db.ref('killfeed').limitToLast(5).on('child_added', snap => {
             let k = snap.val(); 
             if(initialKills || getNow() - k.timestamp > 10000) return; 
-            
             let div = document.createElement('div'); div.className = 'kill-entry'; let kColor = k.kTeam === 'red' ? '#ff5555' : '#5555ff'; let vColor = k.vTeam === 'red' ? '#ff5555' : '#5555ff';
             div.innerHTML = `<img src="${k.kAvatar}" class="kill-avatar" style="border:1px solid ${kColor}"><span style="color:${kColor}">${k.kName}</span> 💥 <img src="${k.vAvatar}" class="kill-avatar" style="border:1px solid ${vColor}"><span style="color:${vColor}">${k.vName}</span>`; 
             document.getElementById('killfeed').appendChild(div); setTimeout(() => div.remove(), 5000); 
@@ -344,7 +426,7 @@
         db.ref('killfeed').limitToLast(5).once('value', () => { initialKills = false; });
 
         function shoot() {
-            if (controlMode === 'shahed' || isPaused || document.activeElement === chatInput) return; 
+            if (controlMode === 'shahed' || controlMode === 'dead' || isPaused || document.activeElement === chatInput) return; 
             let now = Date.now(); let fireDelay = 120; let dmg = 20;
             if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; } if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
             if (now - lastShootTime < fireDelay) return;
@@ -419,7 +501,7 @@
         db.ref('explosions').on('child_added', snap => {
             let exp = snap.val(); playExplosionSound();
             
-            if (controlMode !== 'shahed') {
+            if (controlMode !== 'shahed' && controlMode !== 'dead') {
                 let dist = Math.sqrt(Math.pow(myUnit.x - exp.x, 2) + Math.pow(myUnit.y - exp.y, 2) + Math.pow(myUnit.z - exp.z, 2));
                 if (exp.team !== myTeam || exp.owner === myId) {
                     if (dist < 6) { myHp -= 100; updateHpUi(); if(myHp<=0) die(exp); } 
@@ -430,7 +512,7 @@
             if (exp.owner === myId) {
                 for (let pId in serverPlayers) {
                     let p = serverPlayers[pId];
-                    if (p.team !== myTeam) {
+                    if (p.team !== myTeam && p.y > -500) {
                         let dist = Math.sqrt(Math.pow(p.x - exp.x, 2) + Math.pow((p.y||0) - exp.y, 2) + Math.pow(p.z - exp.z, 2));
                         if (dist < 12) { showHitmarker(); break; }
                     }
@@ -468,7 +550,7 @@
             }
         });
         window.addEventListener('mousedown', e => { 
-            initAudio(); if (!inGame || gameEnded) return; 
+            initAudio(); if (!inGame || gameEnded || controlMode === 'dead') return; 
             if (document.activeElement === chatInput) return;
             if (document.pointerLockElement !== document.body) { let promise = document.body.requestPointerLock(); if (promise) promise.catch(err => {}); } 
             else if (!isPaused) { 
@@ -479,14 +561,14 @@
             } 
         });
         document.addEventListener('mousemove', (e) => {
-            if (document.pointerLockElement === document.body && !isPaused && document.activeElement !== chatInput) {
+            if (document.pointerLockElement === document.body && !isPaused && document.activeElement !== chatInput && controlMode !== 'dead') {
                 if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
                 let sens = isZoomed ? 0.0005 : 0.002; yaw -= e.movementX * sens; pitch -= e.movementY * sens; pitch = Math.max(-Math.PI/2, Math.min(Math.PI/2, pitch));
             }
         });
 
         setInterval(() => {
-            if (inGame) {
+            if (inGame && controlMode !== 'dead') {
                 if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow() });
                 if (controlMode === 'shahed') db.ref('drones/' + myId).update({ timestamp: getNow() });
             }
@@ -499,7 +581,8 @@
             requestAnimationFrame(animate);
             if (!inGame || gameEnded) return; 
 
-            if (controlMode !== 'shahed') drawMinimap();
+            if (controlMode !== 'shahed' && controlMode !== 'dead') drawMinimap();
+            
             let qStatus = document.getElementById('qStatus');
             if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; } else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
             let gStatus = document.getElementById('gStatus');
@@ -550,7 +633,7 @@
 
                         for (let pId in serverPlayers) {
                             let p = serverPlayers[pId];
-                            if (p.team !== myTeam) {
+                            if (p.team !== myTeam && p.y > -500) {
                                 let dX = b.mesh.position.x - p.x; let dZ = b.mesh.position.z - p.z; let pY = p.y || 0; let pHeight = p.crouch ? 0.8 : 1.6;
                                 if (Math.sqrt(dX*dX + dZ*dZ) < 1.5 && b.mesh.position.y > pY - 0.5 && b.mesh.position.y < pY + pHeight + 0.5) {
                                     showHitmarker(); 
@@ -574,7 +657,11 @@
                 if (p.life <= 0) { scene.remove(p.mesh); particles.splice(i, 1); }
             }
 
-            if (!isPaused && document.activeElement !== chatInput) {
+            if (controlMode === 'dead') {
+                camera.position.set(0, 50, 0); 
+                let euler = new THREE.Euler(-Math.PI/2, 0, 0, 'YXZ'); camera.quaternion.setFromEuler(euler);
+            } 
+            else if (!isPaused && document.activeElement !== chatInput) {
                 isCrouching = (keys['KeyC'] === true || keys['ShiftLeft'] === true);
                 if (keys['Space'] && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
                 if (keys['KeyQ']) { if(myClass === 'инженер') placeMine(); else launchShahed(); keys['KeyQ'] = false; }
@@ -633,7 +720,10 @@
                     for (let id in pvoMeshes) { if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true; }
                     let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
                 }
-                let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
+                
+                if (controlMode !== 'dead') {
+                    let euler = new THREE.Euler(0, 0, 0, 'YXZ'); euler.x = pitch; euler.y = yaw; camera.quaternion.setFromEuler(euler);
+                }
             }
             renderer.render(scene, camera);
         }
@@ -643,7 +733,7 @@
             myName = document.getElementById('playerNameInput').value.trim() || myName;
             document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ"; document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
-            document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('scoreBoard').style.display = 'block';
+            document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('captureBoard').style.display = 'block';
             buildFpsWeapon(myClass); 
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
             db.ref('players/' + myId + '/hits').remove();
