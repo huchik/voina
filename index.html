@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Фикс Анимаций</title>
+    <title>Окопная Война: Генерал и FPV-Физика</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -45,18 +45,18 @@
         #pauseScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 15; text-align: center; pointer-events: auto;}
         #endScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 30; pointer-events: auto;}
         
-        #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; }
+        #menu { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,10,15,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; pointer-events: auto; overflow-y: auto; padding: 20px 0;}
         h1 { color: #888; font-size: 40px; text-shadow: 2px 2px 0 #000; margin-bottom: 20px; letter-spacing: 2px; }
         
         .profile-setup { background: rgba(0,0,0,0.5); border: 2px solid #555; padding: 20px; margin-bottom: 30px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .profile-setup input[type="text"] { background: #222; border: 1px solid #666; color: white; padding: 10px; font-family: monospace; font-size: 16px; width: 250px; text-align: center; }
         .avatar-preview { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #888; object-fit: cover; background: #333; }
         
-        .teams-container { display: flex; gap: 50px; }
+        .teams-container { display: flex; gap: 50px; flex-wrap: wrap; justify-content: center;}
         .team-box { display: flex; flex-direction: column; align-items: center; padding: 20px; border: 2px solid #333; background: #1a1a1a;}
         .team-red { border-color: #aa3333; }
         .team-blue { border-color: #3333aa; }
-        .btn { padding: 12px 20px; margin: 5px; font-size: 16px; font-family: monospace; background: #222; color: #ddd; border: 2px solid #555; cursor: pointer; transition: 0.2s; width: 250px;}
+        .btn { padding: 12px 20px; margin: 5px; font-size: 16px; font-family: monospace; background: #222; color: #ddd; border: 2px solid #555; cursor: pointer; transition: 0.2s; width: 280px;}
         .team-red .btn:hover { background: #552222; border-color: #ff4444; }
         .team-blue .btn:hover { background: #222255; border-color: #4444ff; }
     </style>
@@ -80,15 +80,17 @@
                 <button class="btn" onclick="startGame('red', 'штурмовик')">Штурмовик (АК-47, FPV)</button>
                 <button class="btn" onclick="startGame('red', 'снайпер')">Снайпер (Винтовка, FPV)</button>
                 <button class="btn" onclick="startGame('red', 'инженер')">Инженер (АК-47, Мины)</button>
+                <button class="btn" onclick="startGame('red', 'генерал')">Генерал (Авиаудар, Пистолет)</button>
             </div>
             <div class="team-box team-blue">
                 <h2 style="color: #5555ff; margin-top: 0;">СИНИЕ</h2>
                 <button class="btn" onclick="startGame('blue', 'штурмовик')">Штурмовик (АК-47, FPV)</button>
                 <button class="btn" onclick="startGame('blue', 'снайпер')">Снайпер (Винтовка, FPV)</button>
                 <button class="btn" onclick="startGame('blue', 'инженер')">Инженер (АК-47, Мины)</button>
+                <button class="btn" onclick="startGame('blue', 'генерал')">Генерал (Авиаудар, Пистолет)</button>
             </div>
         </div>
-        <p style="color: gray; margin-top: 40px;">Цель: Захватить вражеский окоп (100%) | Enter - Чат | Q - FPV Дрон (30с)</p>
+        <p style="color: gray; margin-top: 40px; text-align:center;">Цель: Захватить окоп врага (100%) | Q - Спецумение | FPV: WASD/Space/C</p>
     </div>
 
     <div id="pauseScreen">
@@ -119,10 +121,10 @@
         <div id="crosshair">✛</div><div id="hitmarker">✖</div><div id="hint">Нажми F</div>
         <div id="droneOverlay">
             <div style="position:absolute; top:20px; left:20px; color:lime;">FPV CAM - REC</div>
-            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">FPV: ЛЕТИ В ЦЕЛЬ (HP: <span id="shahedHpUi">2</span>)</div>
+            <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); color:lime;">FPV: WASD - Полет | Space - Вверх | C - Вниз (HP: <span id="shahedHpUi">2</span>)</div>
         </div>
         <div id="hud">Команда: <span id="teamDisplay">...</span> | Класс: <span id="classDisplay">...</span> <br><br>HP: <span id="hpDisplay" style="color:lime; font-size: 24px; font-weight: bold;">100</span> | ПВО: <span id="pvoStatus">НЕТ</span></div>
-        <div id="cooldown">Спецумение (Q): <span id="qStatus" style="color:lime">ГОТОВО</span><br>Граната (G): <span id="gStatus" style="color:lime">ГОТОВА</span></div>
+        <div id="cooldown"><span id="qName">Спецумение (Q)</span>: <span id="qStatus" style="color:lime">ГОТОВО</span><br>Граната (G): <span id="gStatus" style="color:lime">ГОТОВА</span></div>
     </div>
     <div id="damageOverlay"></div>
 
@@ -209,9 +211,12 @@
         let controlMode = 'player'; let inPvoId = null; 
         
         let lastDroneTime = -30000; const DRONE_COOLDOWN = 30000;
+        let lastAirstrikeTime = -90000; const AIRSTRIKE_COOLDOWN = 90000; // Кулдаун Авиаудара (Генерал)
         let lastGrenadeTime = -5000; const GRENADE_COOLDOWN = 5000;
         
         let myUnit = { x: 0, y: 0, z: 0 }; let shahedUnit = { x: 0, y: 0, z: 0 }; let shahedHp = 2;
+        let droneVx = 0, droneVy = 0, droneVz = 0; // Физика FPV Дрона
+        
         const speed = 0.08; let isCrouching = false; let headBobTimer = 0; let velocityY = 0; let isGrounded = true;
         let yaw = 0; let pitch = 0; let recoilOffset = 0; let recoilTarget = 0; let savedYaw = 0; let savedPitch = 0;
         let isZoomed = false; const DEFAULT_FOV = 75; const SNIPER_FOV = 20;
@@ -224,16 +229,27 @@
         const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(0.3); renderer.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(renderer.domElement);
         scene.add(new THREE.AmbientLight(0x555555)); const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8); dirLight.position.set(20, 50, -20); scene.add(dirLight);
         
+        // ==========================================
+        // ОРУЖИЕ ОТ ПЕРВОГО ЛИЦА
+        // ==========================================
         const fpsWeaponGroup = new THREE.Group(); camera.add(fpsWeaponGroup);
         function buildFpsWeapon(cls) {
             while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
             const mDark = new THREE.MeshStandardMaterial({color: 0x1a1a1a}); const mWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
-            if (cls === 'снайпер') {
+            
+            if (cls === 'генерал') {
+                // ПИСТОЛЕТ ГЕНЕРАЛА
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.2), mDark); barrel.position.set(0, 0, -0.1); 
+                let grip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.04), mWood); grip.position.set(0, -0.04, 0.0); grip.rotation.x = Math.PI / 12;
+                fpsWeaponGroup.add(barrel, grip);
+            }
+            else if (cls === 'снайпер') {
                 let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.2), mDark); barrel.position.set(0, 0, -0.4); 
                 let stock = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.8), mWood); stock.position.set(0, -0.04, 0.3); 
                 let scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.3).rotateX(Math.PI/2), mDark); scope.position.set(0, 0.05, 0.1); 
                 fpsWeaponGroup.add(barrel, stock, scope);
             } else {
+                // АК-47
                 let body = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, 0.4), mDark); body.position.set(0, -0.05, 0.1); 
                 let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7).rotateX(Math.PI/2), mDark); barrel.position.set(0, -0.03, -0.35); 
                 let gasTube = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3).rotateX(Math.PI/2), mDark); gasTube.position.set(0, 0.01, -0.35);
@@ -248,37 +264,40 @@
         }
 
         // ==========================================
-        // 3D МОДЕЛИ СОЛДАТ И ОРУЖИЯ (ОТ 3-ГО ЛИЦА)
+        // 3D МОДЕЛИ ОТ ТРЕТЬЕГО ЛИЦА
         // ==========================================
         function createSoldierModel(tColor, cls) {
             let g = new THREE.Group(), mB = new THREE.MeshStandardMaterial({color: 0x4A5D23}), mS = new THREE.MeshStandardMaterial({color: 0xd2a88e});
-            
             let tor = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.35), mB); tor.position.y = 0.75;
             let bnd = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.15, 0.37), new THREE.MeshStandardMaterial({color: tColor})); bnd.position.y = 0.85;
-            
             let hG = new THREE.Group(); hG.position.y = 1.25; hG.name = "head";
             let hd = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.25,0.25), mS); 
-            let hlm = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.15,0.3), new THREE.MeshStandardMaterial({color: 0x2B331F})); hlm.position.y = 0.1;
-            hG.add(hd, hlm);
-            
+            // Фуражка для генерала, Каска для остальных
+            if (cls === 'генерал') {
+                let hat = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.1).rotateX(0.1), new THREE.MeshStandardMaterial({color: 0x3d3920})); hat.position.y = 0.15;
+                let visor = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.15), new THREE.MeshStandardMaterial({color: 0x111})); visor.position.set(0, 0.1, -0.15); visor.rotation.x = 0.2;
+                hG.add(hd, hat, visor);
+            } else {
+                let hlm = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.15,0.3), new THREE.MeshStandardMaterial({color: 0x2B331F})); hlm.position.y = 0.1;
+                hG.add(hd, hlm);
+            }
             let lL = new THREE.Group(); lL.position.set(-0.15, 0.4, 0); lL.name = "legL";
             let lMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mB); lMeshL.position.y = -0.2; lL.add(lMeshL);
-            
             let lR = new THREE.Group(); lR.position.set(0.15, 0.4, 0); lR.name = "legR";
             let lMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mB); lMeshR.position.y = -0.2; lR.add(lMeshR);
-            
-            // ФИКС РУК И ОРУЖИЯ: сдвигаем вперед (отрицательный Z), поворачиваем руки вперед
             let aimGroup = new THREE.Group(); aimGroup.position.set(0, 1.0, 0); aimGroup.name = "aimGroup";
-            
             let aL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aL.position.set(-0.35, -0.1, -0.2); aL.rotation.x = Math.PI/3; aL.rotation.z = Math.PI/8;
             let aR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aR.position.set(0.35, -0.1, -0.2); aR.rotation.x = Math.PI/3; aR.rotation.z = -Math.PI/8;
             aimGroup.add(aL, aR);
-            
-            let wMat = new THREE.MeshStandardMaterial({color: 0x111});
-            let wWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
+            let wMat = new THREE.MeshStandardMaterial({color: 0x111}); let wWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
             let weapon = new THREE.Group();
             
-            if (cls === 'снайпер') {
+            if (cls === 'генерал') {
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.03, 0.2), wMat); barrel.position.set(0, -0.02, -0.1);
+                let grip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.08, 0.04), wWood); grip.position.set(0, -0.06, 0.0); grip.rotation.x = 0.2;
+                weapon.add(barrel, grip);
+            }
+            else if (cls === 'снайпер') {
                 let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 1.0), wMat); barrel.position.z = -0.3;
                 let stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.5), wWood); stock.position.z = 0.2;
                 weapon.add(barrel, stock);
@@ -289,31 +308,21 @@
                 let stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.25), wWood); stock.position.set(0, -0.04, 0.2);
                 weapon.add(body, barrel, mag, stock);
             }
-            weapon.position.set(0.15, -0.15, -0.3); // Сдвиг вперед
-            aimGroup.add(weapon);
-            
+            weapon.position.set(0.15, -0.15, -0.3); aimGroup.add(weapon);
             g.add(tor, bnd, hG, lL, lR, aimGroup); return g;
         }
 
         const mapData = []; const wallsGroup = new THREE.Group(); scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
         function createWall(x, z, w, h, d) { let m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ color: 0x6e5a40 })); m.position.set(x, h/2, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: w, d: d, h: h }); }
         function createBush(x, z, r) { let m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), new THREE.MeshStandardMaterial({ color: 0x2d5a27 })); m.position.set(x, r, z); wallsGroup.add(m); mapData.push({ x: x, z: z, w: r*1.6, d: r*1.6, h: r*2 });  }
-        
         const redFlag = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0xff0000 })); redFlag.position.set(0, 4, 50); scene.add(redFlag);
         const blueFlag = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x0000ff })); blueFlag.position.set(0, 4, -50); scene.add(blueFlag);
-        
         createWall(0, -45, 200, 1.0, 2); createWall(-55, -53, 90, 1.6, 2); createWall(55, -53, 90, 1.6, 2);  
         createWall(0, 45, 200, 1.0, 2); createWall(-55, 53, 90, 1.6, 2); createWall(55, 53, 90, 1.6, 2);  
         createBush(-40, 0, 8); createBush(25, -20, 5); createBush(55, 10, 6); createBush(-5, 15, 3); createBush(5, -10, 4);   
         scene.add(wallsGroup);
-        
-        function checkCollision(nx, nz, ny) {
-            if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; 
-            for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4) && b.h > ny + 0.5) return true; } return false;
-        }
-        function getFloorHeight(nx, nz) {
-            let maxH = 0; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; } return maxH;
-        }
+        function checkCollision(nx, nz, ny) { if (nx < -95 || nx > 95 || nz < -95 || nz > 95) return true; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.4) && Math.abs(nz - b.z) < (b.d/2 + 0.4) && b.h > ny + 0.5) return true; } return false; }
+        function getFloorHeight(nx, nz) { let maxH = 0; for(let b of mapData) { if (Math.abs(nx - b.x) < (b.w/2 + 0.2) && Math.abs(nz - b.z) < (b.d/2 + 0.2) && b.h > maxH) maxH = b.h; } return maxH; }
 
         let serverPlayers = {}; const labels = {}; const playerMeshes = {}; 
         
@@ -369,7 +378,6 @@
                     labels[id].innerHTML = `<img src="${p.avatar || 'https://i.ibb.co/3Wk0X2V/default-avatar.png'}" style="border-color:${p.team === 'red' ? '#ff5555' : '#5555ff'};">
                                     <span style="color:${p.team === 'red' ? '#ff5555' : '#5555ff'}">${p.name || 'Игрок'}</span>`;
                 }
-                
                 playerMeshes[id].userData.targetPos.set(p.x, p.y || 0, p.z);
                 playerMeshes[id].userData.targetYaw = p.yaw;
                 playerMeshes[id].userData.targetPitch = p.pitch;
@@ -448,7 +456,7 @@
 
         function respawn() {
             if (!inGame || gameEnded) return;
-            controlMode = 'player'; myHp = 100; yaw = 0; pitch = 0; updateHpUi();
+            controlMode = 'player'; myHp = (myClass === 'генерал') ? 70 : 100; yaw = 0; pitch = 0; updateHpUi();
             document.getElementById('respawnScreen').style.display = 'none'; document.getElementById('hud').style.display = 'block'; document.getElementById('crosshair').style.display = 'block';
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
         }
@@ -466,21 +474,25 @@
 
         function shoot() {
             if (controlMode === 'shahed' || controlMode === 'dead' || isPaused || document.activeElement === chatInput) return; 
-            let now = Date.now(); let fireDelay = 120; let dmg = 20;
-            if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; } if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
+            let now = Date.now(); let fireDelay = 120; let dmg = 20; let bSpeed = 1.5;
+            
+            if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; bSpeed = 3.0; } 
+            else if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
+            else if (myClass === 'генерал') { fireDelay = 400; dmg = 12; bSpeed = 2.0; }
+            
             if (now - lastShootTime < fireDelay) return;
             lastShootTime = now; playShootSound(); recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
             
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-            let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
+            if (controlMode === 'pvo') bSpeed = 3.5; 
             
             let spawnPos = new THREE.Vector3();
             if (controlMode === 'pvo') {
-                spawnPos.copy(camera.position); // ПВО стреляет из камеры
+                spawnPos.copy(camera.position); 
             } else {
                 let muzzleOffset = new THREE.Vector3(0.2, -0.2, -0.6); 
                 if (isZoomed) muzzleOffset.set(0, -0.1, -0.5);
-                spawnPos = muzzleOffset.applyMatrix4(camera.matrixWorld); // Пуля вылетает из ствола оружия
+                spawnPos = muzzleOffset.applyMatrix4(camera.matrixWorld); 
             }
 
             let bId = 'b_' + myId + '_' + now;
@@ -511,10 +523,32 @@
         db.ref('mines').on('child_added', snap => { let m = snap.val(); let mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.1, 8), new THREE.MeshStandardMaterial({ color: 0x333333 })); mesh.position.set(m.x, m.y + 0.05, m.z); scene.add(mesh); activeMines[snap.key] = { data: m, mesh: mesh }; });
         db.ref('mines').on('child_removed', snap => { if(activeMines[snap.key]) { scene.remove(activeMines[snap.key].mesh); delete activeMines[snap.key]; } });
 
+        // АВИАУДАР ГЕНЕРАЛА
+        function callAirstrike() {
+            if (Date.now() - lastAirstrikeTime < AIRSTRIKE_COOLDOWN) return;
+            lastAirstrikeTime = Date.now();
+            
+            let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+            let t = camera.position.y / -dir.y;
+            let targetX, targetZ;
+            
+            if (t > 0 && t < 300) { targetX = camera.position.x + dir.x * t; targetZ = camera.position.z + dir.z * t; } 
+            else { targetX = camera.position.x + dir.x * 50; targetZ = camera.position.z + dir.z * 50; }
+            
+            for(let i=0; i<8; i++) {
+                setTimeout(() => {
+                    let ex = targetX + (Math.random()-0.5)*30; let ez = targetZ + (Math.random()-0.5)*30;
+                    db.ref('explosions').push({ x: ex, y: 0.1, z: ez, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, owner: myId });
+                }, i * 300);
+            }
+        }
+
         function launchShahed() {
             if (Date.now() - lastDroneTime < DRONE_COOLDOWN) return;
             lastDroneTime = Date.now(); resetZoom(); shahedHp = 2; document.getElementById('shahedHpUi').innerText = shahedHp;
             savedYaw = yaw; savedPitch = pitch; 
+            droneVx = 0; droneVy = 0; droneVz = 0; // Сброс физики дрона
+            
             db.ref('drones/' + myId).update({ x: myUnit.x, y: camera.position.y + 1, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, timestamp: getNow() }); db.ref('drones/' + myId + '/hits').remove();
             controlMode = 'shahed'; shahedUnit.x = myUnit.x; shahedUnit.y = camera.position.y + 1; shahedUnit.z = myUnit.z;
             document.getElementById('droneOverlay').style.display = 'block'; document.getElementById('hud').style.display = 'none'; document.getElementById('minimap').style.display = 'none'; document.getElementById('crosshair').innerText = '[- + -]';
@@ -550,6 +584,9 @@
                     scene.add(g); activeDrones[id] = { mesh: g };
                 }
                 activeDrones[id].mesh.position.set(d.x, d.y, d.z); activeDrones[id].mesh.rotation.y = d.yaw; activeDrones[id].mesh.rotation.x = d.pitch; activeDrones[id].team = d.team;
+                
+                // Вращение пропеллеров
+                activeDrones[id].mesh.children.slice(-4).forEach(p => p.rotation.y += 0.5);
             }
         });
 
@@ -624,7 +661,7 @@
 
         setInterval(() => {
             if (inGame && controlMode !== 'dead') {
-                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow() });
+                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow(), cls: myClass });
                 if (controlMode === 'shahed') db.ref('drones/' + myId).update({ timestamp: getNow() });
             }
         }, 5000);
@@ -639,9 +676,18 @@
             if (controlMode !== 'shahed' && controlMode !== 'dead') drawMinimap();
             
             let qStatus = document.getElementById('qStatus');
-            if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; } else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
+            if (myClass === 'генерал') {
+                if (Date.now() - lastAirstrikeTime >= AIRSTRIKE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; } 
+                else { qStatus.innerText = Math.ceil((AIRSTRIKE_COOLDOWN - (Date.now() - lastAirstrikeTime))/1000) + "с"; qStatus.style.color = "red"; }
+            } else {
+                if (Date.now() - lastDroneTime >= DRONE_COOLDOWN) { qStatus.innerText = "ГОТОВО"; qStatus.style.color = "lime"; } 
+                else { qStatus.innerText = Math.ceil((DRONE_COOLDOWN - (Date.now() - lastDroneTime))/1000) + "с"; qStatus.style.color = "red"; }
+            }
+            
             let gStatus = document.getElementById('gStatus');
-            if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; } else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
+            if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; } 
+            else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
+            
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
             for (let id in playerMeshes) {
@@ -654,7 +700,6 @@
                     let head = mesh.getObjectByName("head");
                     let aimGroup = mesh.getObjectByName("aimGroup");
                     
-                    // ФИКС ИНВЕРСИИ ГОЛОВЫ И ОРУЖИЯ ОТ 3 ЛИЦА
                     if (head) head.rotation.x = -mesh.userData.targetPitch;
                     if (aimGroup) aimGroup.rotation.x = -mesh.userData.targetPitch;
                     
@@ -743,7 +788,12 @@
             else if (!isPaused && document.activeElement !== chatInput) {
                 isCrouching = (keys['KeyC'] === true || keys['ShiftLeft'] === true);
                 if (keys['Space'] && controlMode === 'player' && isGrounded && !isCrouching) { velocityY = 0.28; isGrounded = false; }
-                if (keys['KeyQ']) { if(myClass === 'инженер') placeMine(); else launchShahed(); keys['KeyQ'] = false; }
+                if (keys['KeyQ']) { 
+                    if(myClass === 'инженер') placeMine(); 
+                    else if (myClass === 'генерал') callAirstrike();
+                    else launchShahed(); 
+                    keys['KeyQ'] = false; 
+                }
                 if (keys['KeyG']) { throwGrenade(); keys['KeyG'] = false; }
                 if (keys['KeyF'] && controlMode !== 'shahed') {
                     if (controlMode === 'pvo') {
@@ -770,8 +820,21 @@
                 }
 
                 if (controlMode === 'shahed') {
-                    let sSpeed = 0.3; let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
-                    shahedUnit.x += forward.x * sSpeed; shahedUnit.y += forward.y * sSpeed; shahedUnit.z += forward.z * sSpeed;
+                    // FPV ФИЗИКА
+                    let accel = 0.015; let friction = 0.96;
+                    let forward = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+                    let right = new THREE.Vector3(1,0,0).applyEuler(new THREE.Euler(0, yaw, 0, 'YXZ'));
+                    
+                    if (keys['KeyW']) { droneVx += forward.x * accel; droneVy += forward.y * accel; droneVz += forward.z * accel; }
+                    if (keys['KeyS']) { droneVx -= forward.x * accel; droneVy -= forward.y * accel; droneVz -= forward.z * accel; }
+                    if (keys['KeyA']) { droneVx -= right.x * accel; droneVz -= right.z * accel; }
+                    if (keys['KeyD']) { droneVx += right.x * accel; droneVz += right.z * accel; }
+                    if (keys['Space']) { droneVy += accel; }
+                    if (keys['KeyC'] || keys['ShiftLeft']) { droneVy -= accel; }
+                    
+                    droneVx *= friction; droneVy *= friction; droneVz *= friction;
+                    
+                    shahedUnit.x += droneVx; shahedUnit.y += droneVy; shahedUnit.z += droneVz;
                     camera.position.set(shahedUnit.x, shahedUnit.y, shahedUnit.z);
                     if (shahedUnit.y <= 0.2 || checkCollision(shahedUnit.x, shahedUnit.z, shahedUnit.y)) explodeShahed();
                     else db.ref('drones/' + myId).update({ x: shahedUnit.x, y: shahedUnit.y, z: shahedUnit.z, yaw: yaw, pitch: pitch, team: myTeam, timestamp: getNow() });
@@ -810,6 +873,11 @@
         window.startGame = function(team, selectedClass) {
             initAudio(); resetZoom(); myTeam = team; myClass = selectedClass;
             myName = document.getElementById('playerNameInput').value.trim() || myName;
+            
+            myHp = (myClass === 'генерал') ? 70 : 100;
+            updateHpUi();
+            
+            document.getElementById('qName').innerText = (myClass === 'генерал') ? 'Авиаудар (Q)' : (myClass === 'инженер' ? 'Мина (Q)' : 'FPV Дрон (Q)');
             document.getElementById('teamDisplay').innerText = (myTeam === 'red') ? "КРАСНЫЕ" : "СИНИЕ"; document.getElementById('teamDisplay').style.color = (myTeam === 'red') ? "#ff5555" : "#5555ff";
             document.getElementById('classDisplay').innerText = myClass.toUpperCase();
             document.getElementById('menu').style.display = 'none'; document.getElementById('ui').style.display = 'block'; document.getElementById('minimap').style.display = 'block'; document.getElementById('captureBoard').style.display = 'block';
