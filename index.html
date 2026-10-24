@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Окопная Война: Солдаты и FPV</title>
+    <title>Окопная Война: Анимации и Физика</title>
     <style>
         body { margin: 0; overflow: hidden; background: #111; font-family: monospace; color: white; user-select: none; }
         canvas { image-rendering: pixelated; }
@@ -224,9 +224,6 @@
         const renderer = new THREE.WebGLRenderer({ antialias: false }); renderer.setPixelRatio(0.3); renderer.setSize(window.innerWidth, window.innerHeight); document.body.appendChild(renderer.domElement);
         scene.add(new THREE.AmbientLight(0x555555)); const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8); dirLight.position.set(20, 50, -20); scene.add(dirLight);
         
-        // ==========================================
-        // СОЗДАНИЕ ОРУЖИЯ ОТ 1 ЛИЦА
-        // ==========================================
         const fpsWeaponGroup = new THREE.Group(); camera.add(fpsWeaponGroup);
         function buildFpsWeapon(cls) {
             while(fpsWeaponGroup.children.length > 0) { fpsWeaponGroup.remove(fpsWeaponGroup.children[0]); }
@@ -251,35 +248,51 @@
         }
 
         // ==========================================
-        // МОДЕЛЬ СОЛДАТА И ДРОНА (FPV)
+        // 3D МОДЕЛИ СОЛДАТ И ОРУЖИЯ (ОТ 3-ГО ЛИЦА)
         // ==========================================
-        function createSoldierModel(tColor) {
+        function createSoldierModel(tColor, cls) {
             let g = new THREE.Group(), mB = new THREE.MeshStandardMaterial({color: 0x4A5D23}), mS = new THREE.MeshStandardMaterial({color: 0xd2a88e});
-            let tor = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.8,0.35), mB); tor.position.y = 0.8;
-            let bnd = new THREE.Mesh(new THREE.BoxGeometry(0.72,0.15,0.37), new THREE.MeshStandardMaterial({color: tColor})); bnd.position.y = 0.9;
-            let hG = new THREE.Group(); hG.position.y = 1.4; hG.name = "head";
-            let hd = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.3), mS); 
-            let hlm = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.2,0.35), new THREE.MeshStandardMaterial({color: 0x2B331F})); hlm.position.y = 0.1;
+            
+            let tor = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.7, 0.35), mB); tor.position.y = 0.75;
+            let bnd = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.15, 0.37), new THREE.MeshStandardMaterial({color: tColor})); bnd.position.y = 0.85;
+            
+            let hG = new THREE.Group(); hG.position.y = 1.25; hG.name = "head";
+            let hd = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.25,0.25), mS); 
+            let hlm = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.15,0.3), new THREE.MeshStandardMaterial({color: 0x2B331F})); hlm.position.y = 0.1;
             hG.add(hd, hlm);
-            let lL = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.4,0.25), mB); lL.position.set(-0.2, 0.2, 0);
-            let lR = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.4,0.25), mB); lR.position.set(0.2, 0.2, 0);
-            let aL = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.7,0.2), mB); aL.position.set(-0.45, 0.85, 0);
-            let aR = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.7,0.2), mB); aR.position.set(0.45, 0.85, 0);
-            g.add(tor, bnd, hG, lL, lR, aL, aR); return g;
-        }
-
-        function createFpvModel() {
-            let g = new THREE.Group(), mD = new THREE.MeshStandardMaterial({color: 0x222}), mP = new THREE.MeshStandardMaterial({color: 0xff3333, transparent: true, opacity: 0.7});
-            let b = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.05,0.3), mD);
-            let bat = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.05,0.15), new THREE.MeshStandardMaterial({color: 0x555})); bat.position.y = 0.05;
-            let c = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.05), new THREE.MeshStandardMaterial({color: 0x111})); c.position.set(0,0.025,-0.15);
-            let a1 = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.02,0.05), mD); a1.rotation.y = Math.PI/4;
-            let a2 = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.02,0.05), mD); a2.rotation.y = -Math.PI/4;
-            g.add(b, bat, c, a1, a2);
-            [[-0.15,-0.15],[0.15,-0.15],[-0.15,0.15],[0.15,0.15]].forEach(p => {
-                let pr = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.01,8), mP); pr.position.set(p[0], 0.02, p[1]); g.add(pr);
-            });
-            return g;
+            
+            let lL = new THREE.Group(); lL.position.set(-0.15, 0.4, 0); lL.name = "legL";
+            let lMeshL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mB); lMeshL.position.y = -0.2; lL.add(lMeshL);
+            
+            let lR = new THREE.Group(); lR.position.set(0.15, 0.4, 0); lR.name = "legR";
+            let lMeshR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.4, 0.2), mB); lMeshR.position.y = -0.2; lR.add(lMeshR);
+            
+            // Руки и оружие крутятся вместе за прицелом
+            let aimGroup = new THREE.Group(); aimGroup.position.set(0, 1.0, 0); aimGroup.name = "aimGroup";
+            
+            let aL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aL.position.set(-0.35, -0.1, 0.2); aL.rotation.x = -Math.PI/3; aL.rotation.z = Math.PI/8;
+            let aR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.5, 0.15), mB); aR.position.set(0.35, -0.1, 0.2); aR.rotation.x = -Math.PI/3; aR.rotation.z = -Math.PI/8;
+            aimGroup.add(aL, aR);
+            
+            let wMat = new THREE.MeshStandardMaterial({color: 0x111});
+            let wWood = new THREE.MeshStandardMaterial({color: 0x5c4033});
+            let weapon = new THREE.Group();
+            
+            if (cls === 'снайпер') {
+                let barrel = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 1.0), wMat); barrel.position.z = -0.3;
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.5), wWood); stock.position.z = 0.2;
+                weapon.add(barrel, stock);
+            } else {
+                let body = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.08, 0.3), wMat); 
+                let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.5).rotateX(Math.PI/2), wMat); barrel.position.set(0, -0.02, -0.3);
+                let mag = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 0.08), wMat); mag.position.set(0, -0.1, 0.0); mag.rotation.x = -0.2;
+                let stock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.25), wWood); stock.position.set(0, -0.04, 0.2);
+                weapon.add(body, barrel, mag, stock);
+            }
+            weapon.position.set(0.15, -0.15, 0.3);
+            aimGroup.add(weapon);
+            
+            g.add(tor, bnd, hG, lL, lR, aimGroup); return g;
         }
 
         const mapData = []; const wallsGroup = new THREE.Group(); scene.add(new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x4a4a35 })).rotateX(-Math.PI/2));
@@ -325,7 +338,8 @@
                 let px = myUnit.x + 100; let py = myUnit.z + 100; ctx.strokeStyle = '#00ff00'; ctx.fillStyle = 'rgba(0, 255, 0, 0.4)'; ctx.lineWidth = 1.5; ctx.beginPath();
                 for (let i = 0; i < 6; i++) { let angle = (i * Math.PI / 3) - Math.PI / 2; let hx = px + 12 * Math.cos(angle); let hy = py + 12 * Math.sin(angle); if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy); }
                 ctx.closePath(); ctx.fill(); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15; ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py); let dirX = Math.sin(yaw) * -15; let dirY = Math.cos(yaw) * -15;
+                ctx.lineTo(px + dirX, py + dirY); ctx.stroke();
             }
         }
 
@@ -342,17 +356,27 @@
                 if (!p.timestamp || now - p.timestamp > 10000) { db.ref('players/' + id).remove(); continue; }
                 if (id === myId || p.inPvo || p.y < -500) continue; 
                 
-                if (!playerMeshes[id]) {
+                // Пересоздаем модель, если игрок сменил класс
+                if (!playerMeshes[id] || playerMeshes[id].userData.cls !== p.cls) {
+                    if (playerMeshes[id]) { scene.remove(playerMeshes[id]); }
                     let color = p.team === 'red' ? 0xaa3333 : 0x3333aa;
-                    let g = createSoldierModel(color); scene.add(g); playerMeshes[id] = g;
+                    let g = createSoldierModel(color, p.cls || 'штурмовик'); 
+                    g.userData = { cls: p.cls, targetPos: new THREE.Vector3(), targetYaw: 0, targetPitch: 0, crouch: false, animTime: 0 };
+                    scene.add(g); playerMeshes[id] = g;
                     
-                    let el = document.createElement('div'); el.className = 'player-label';
-                    el.innerHTML = `<img src="${p.avatar || 'https://i.ibb.co/3Wk0X2V/default-avatar.png'}" style="border-color:${p.team === 'red' ? '#ff5555' : '#5555ff'};">
+                    if (!labels[id]) {
+                        let el = document.createElement('div'); el.className = 'player-label';
+                        document.getElementById('labelsContainer').appendChild(el); labels[id] = el;
+                    }
+                    labels[id].innerHTML = `<img src="${p.avatar || 'https://i.ibb.co/3Wk0X2V/default-avatar.png'}" style="border-color:${p.team === 'red' ? '#ff5555' : '#5555ff'};">
                                     <span style="color:${p.team === 'red' ? '#ff5555' : '#5555ff'}">${p.name || 'Игрок'}</span>`;
-                    document.getElementById('labelsContainer').appendChild(el); labels[id] = el;
                 }
-                playerMeshes[id].position.set(p.x, p.y || 0, p.z); playerMeshes[id].rotation.y = p.yaw; playerMeshes[id].getObjectByName("head").rotation.x = p.pitch;
-                if (p.crouch) playerMeshes[id].scale.set(1, 0.5, 1); else playerMeshes[id].scale.set(1, 1, 1);
+                
+                // Сохраняем целевые координаты для интерполяции
+                playerMeshes[id].userData.targetPos.set(p.x, p.y || 0, p.z);
+                playerMeshes[id].userData.targetYaw = p.yaw;
+                playerMeshes[id].userData.targetPitch = p.pitch;
+                playerMeshes[id].userData.crouch = p.crouch;
             }
         });
 
@@ -449,10 +473,17 @@
             if (myClass === 'снайпер') { fireDelay = 700; dmg = 50; } if (myClass === 'инженер') { fireDelay = 90; dmg = 12; }
             if (now - lastShootTime < fireDelay) return;
             lastShootTime = now; playShootSound(); recoilTarget = (myClass === 'снайпер') ? 0.3 : 0.1; 
+            
             let dir = new THREE.Vector3(); camera.getWorldDirection(dir);
             let bSpeed = (myClass === 'снайпер') ? 3.0 : 1.5; if (controlMode === 'pvo') bSpeed = 3.5; 
+            
+            // ФИЗИКА ВЫЛЕТА ПУЛИ: не из камеры, а со смещением (дуло оружия)
+            let muzzleOffset = new THREE.Vector3(0.2, -0.2, -0.6); 
+            if (isZoomed) muzzleOffset.set(0, -0.1, -0.5);
+            let spawnPos = muzzleOffset.applyMatrix4(camera.matrixWorld);
+
             let bId = 'b_' + myId + '_' + now;
-            db.ref('bullets/' + bId).set({ owner: myId, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, dmg: dmg, x: camera.position.x, y: camera.position.y, z: camera.position.z, vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo' });
+            db.ref('bullets/' + bId).set({ owner: myId, team: myTeam, cls: myClass, name: myName, avatar: myAvatarUrl, dmg: dmg, x: spawnPos.x, y: spawnPos.y, z: spawnPos.z, vx: dir.x * bSpeed, vy: dir.y * bSpeed, vz: dir.z * bSpeed, isPvo: controlMode === 'pvo' });
             setTimeout(() => db.ref('bullets/' + bId).remove(), 1000);
         }
 
@@ -507,7 +538,16 @@
                 if (id === myId) continue; 
                 
                 if (!activeDrones[id]) {
-                    let g = createFpvModel(); scene.add(g); activeDrones[id] = { mesh: g };
+                    // НОВАЯ МОДЕЛЬ FPV ДРОНА
+                    let g = new THREE.Group(), mD = new THREE.MeshStandardMaterial({color: 0x222}), mP = new THREE.MeshStandardMaterial({color: 0xff3333, transparent: true, opacity: 0.7});
+                    let b = new THREE.Mesh(new THREE.BoxGeometry(0.2,0.05,0.3), mD);
+                    let bat = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.05,0.15), new THREE.MeshStandardMaterial({color: 0x555})); bat.position.y = 0.05;
+                    let c = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,0.05), new THREE.MeshStandardMaterial({color: 0x111})); c.position.set(0,0.025,-0.15);
+                    let a1 = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.02,0.05), mD); a1.rotation.y = Math.PI/4;
+                    let a2 = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.02,0.05), mD); a2.rotation.y = -Math.PI/4;
+                    g.add(b, bat, c, a1, a2);
+                    [[-0.15,-0.15],[0.15,-0.15],[-0.15,0.15],[0.15,0.15]].forEach(p => { let pr = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.01,8), mP); pr.position.set(p[0], 0.02, p[1]); g.add(pr); });
+                    scene.add(g); activeDrones[id] = { mesh: g };
                 }
                 activeDrones[id].mesh.position.set(d.x, d.y, d.z); activeDrones[id].mesh.rotation.y = d.yaw; activeDrones[id].mesh.rotation.x = d.pitch; activeDrones[id].team = d.team;
             }
@@ -584,13 +624,13 @@
 
         setInterval(() => {
             if (inGame && controlMode !== 'dead') {
-                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow() });
+                if (controlMode === 'player') db.ref('players/' + myId).update({ timestamp: getNow(), cls: myClass });
                 if (controlMode === 'shahed') db.ref('drones/' + myId).update({ timestamp: getNow() });
             }
         }, 5000);
 
         // ==========================================
-        // 10. ИГРОВОЙ ЦИКЛ 
+        // 10. ИГРОВОЙ ЦИКЛ С АНИМАЦИЯМИ
         // ==========================================
         function animate() {
             requestAnimationFrame(animate);
@@ -604,15 +644,39 @@
             if (Date.now() - lastGrenadeTime >= GRENADE_COOLDOWN) { gStatus.innerText = "ГОТОВА"; gStatus.style.color = "lime"; } else { gStatus.innerText = Math.ceil((GRENADE_COOLDOWN - (Date.now() - lastGrenadeTime))/1000) + "с"; gStatus.style.color = "red"; }
             fpsWeaponGroup.visible = (controlMode === 'player' && !isZoomed); 
 
-            for (let id in serverPlayers) {
-                if (labels[id] && playerMeshes[id]) {
-                    let p = serverPlayers[id];
-                    let pos = new THREE.Vector3(p.x, (p.y||0) + (p.crouch ? 1.0 : 1.8), p.z);
-                    pos.project(camera);
-                    if (pos.z < 1) { 
-                        let sx = (pos.x * 0.5 + 0.5) * window.innerWidth; let sy = (pos.y * -0.5 + 0.5) * window.innerHeight;
-                        labels[id].style.transform = `translate(-50%, -100%) translate(${sx}px, ${sy}px)`; labels[id].style.display = 'flex';
-                    } else { labels[id].style.display = 'none'; }
+            // ИНТЕРПОЛЯЦИЯ И АНИМАЦИИ ИГРОКОВ (Анти-лаг)
+            for (let id in playerMeshes) {
+                let mesh = playerMeshes[id];
+                if (mesh.userData && mesh.userData.targetPos) {
+                    let oldPos = mesh.position.clone();
+                    mesh.position.lerp(mesh.userData.targetPos, 0.3); // Плавное движение
+                    mesh.rotation.y = mesh.userData.targetYaw;
+                    
+                    let head = mesh.getObjectByName("head");
+                    let aimGroup = mesh.getObjectByName("aimGroup");
+                    if (head) head.rotation.x = mesh.userData.targetPitch;
+                    if (aimGroup) aimGroup.rotation.x = mesh.userData.targetPitch; // Оружие целится вверх/вниз
+                    
+                    let dist = oldPos.distanceTo(mesh.position);
+                    if (dist > 0.01) { mesh.userData.animTime += dist * 15; } else { mesh.userData.animTime = 0; }
+                    
+                    let legL = mesh.getObjectByName("legL");
+                    let legR = mesh.getObjectByName("legR");
+                    if (legL && legR) {
+                        legL.rotation.x = Math.sin(mesh.userData.animTime) * 0.6; // Перебирают ногами
+                        legR.rotation.x = Math.sin(mesh.userData.animTime + Math.PI) * 0.6;
+                    }
+                    
+                    if (mesh.userData.crouch) mesh.scale.set(1, 0.6, 1); else mesh.scale.set(1, 1, 1);
+                    
+                    if (labels[id]) {
+                        let pos = new THREE.Vector3(mesh.position.x, mesh.position.y + (mesh.userData.crouch ? 1.0 : 1.8), mesh.position.z);
+                        pos.project(camera);
+                        if (pos.z < 1) { 
+                            let sx = (pos.x * 0.5 + 0.5) * window.innerWidth; let sy = (pos.y * -0.5 + 0.5) * window.innerHeight;
+                            labels[id].style.transform = `translate(-50%, -100%) translate(${sx}px, ${sy}px)`; labels[id].style.display = 'flex';
+                        } else { labels[id].style.display = 'none'; }
+                    }
                 }
             }
 
@@ -730,7 +794,7 @@
                     camera.position.set(myUnit.x, myUnit.y + targetCamOffset + swayY, myUnit.z);
                     recoilOffset += (recoilTarget - recoilOffset) * 0.2; recoilTarget *= 0.8;
                     fpsWeaponGroup.position.set(0.35 + swayX, -0.3 + swayY, -0.5 + recoilOffset); fpsWeaponGroup.rotation.x = recoilOffset * 0.5;
-                    db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching, name: myName, avatar: myAvatarUrl, timestamp: getNow() });
+                    db.ref('players/' + myId).update({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: yaw, pitch: pitch, team: myTeam, crouch: isCrouching, name: myName, avatar: myAvatarUrl, timestamp: getNow(), cls: myClass });
                     let canSit = false;
                     for (let id in pvoMeshes) { if (Math.sqrt(Math.pow(myUnit.x - pvoMeshes[id].position.x, 2) + Math.pow(myUnit.z - pvoMeshes[id].position.z, 2)) < 4) canSit = true; }
                     let hintEl = document.getElementById('hint'); if(hintEl) hintEl.style.display = canSit ? 'block' : 'none';
@@ -767,7 +831,7 @@
             let spawn = getSpawn(myTeam); myUnit.x = spawn.x; myUnit.y = 0; myUnit.z = spawn.z;
             db.ref('players/' + myId + '/hits').remove();
             
-            db.ref('players/' + myId).set({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false, name: myName, avatar: myAvatarUrl, timestamp: getNow() });
+            db.ref('players/' + myId).set({ x: myUnit.x, y: myUnit.y, z: myUnit.z, yaw: 0, pitch: 0, inPvo: false, team: myTeam, crouch: false, name: myName, avatar: myAvatarUrl, timestamp: getNow(), cls: myClass });
             db.ref('players/' + myId).onDisconnect().remove();
 
             db.ref('players/' + myId + '/hits').on('child_added', snap => {
